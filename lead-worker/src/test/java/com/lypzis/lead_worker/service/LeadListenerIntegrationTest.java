@@ -2,7 +2,11 @@ package com.lypzis.lead_worker.service;
 
 import com.lypzis.lead_worker.config.RabbitConfig;
 import com.lypzis.lead_worker.dto.LeadEventDTO;
+import com.lypzis.lead_worker.entity.Tenant;
 import com.lypzis.lead_worker.repository.LeadRepository;
+import com.lypzis.lead_worker.repository.TenantRepository;
+import org.springframework.amqp.core.AmqpAdmin;
+import org.springframework.amqp.rabbit.core.RabbitAdmin;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -49,6 +53,7 @@ class LeadListenerIntegrationTest {
         registry.add("spring.rabbitmq.port", RABBITMQ::getAmqpPort);
         registry.add("spring.rabbitmq.username", RABBITMQ::getAdminUsername);
         registry.add("spring.rabbitmq.password", RABBITMQ::getAdminPassword);
+        registry.add("spring.rabbitmq.listener.simple.default-requeue-rejected", () -> "false");
     }
 
     @Autowired
@@ -57,18 +62,35 @@ class LeadListenerIntegrationTest {
     @Autowired
     private LeadRepository leadRepository;
 
+    @Autowired
+    private TenantRepository tenantRepository;
+
+    @Autowired
+    private AmqpAdmin amqpAdmin;
+
     @BeforeEach
     void cleanDatabase() {
+        amqpAdmin.purgeQueue(RabbitConfig.MAIN_QUEUE, true);
+        amqpAdmin.purgeQueue(RabbitConfig.RETRY_QUEUE, true);
+        amqpAdmin.purgeQueue(RabbitConfig.DLQ, true);
         leadRepository.deleteAll();
+        tenantRepository.deleteAll();
     }
 
     @Test
     void shouldConsumeRabbitMessageAndPersistLead() {
+        Tenant tenant = Tenant.builder()
+                .name("Integration Tenant")
+                .apiKey("it-tenant-key")
+                .build();
+        Tenant savedTenant = tenantRepository.save(tenant);
+
         LeadEventDTO event = new LeadEventDTO();
         event.setMessageId("msg-" + UUID.randomUUID());
         event.setPhone("+15550001111");
         event.setMessage("integration payload");
         event.setCampaign("integration-campaign");
+        event.setApiKey("it-tenant-key");
 
         rabbitTemplate.convertAndSend(RabbitConfig.EXCHANGE, RabbitConfig.ROUTING_KEY, event);
 
@@ -80,6 +102,38 @@ class LeadListenerIntegrationTest {
                     assertThat(savedLead.orElseThrow().getPhone()).isEqualTo(event.getPhone());
                     assertThat(savedLead.orElseThrow().getMessage()).isEqualTo(event.getMessage());
                     assertThat(savedLead.orElseThrow().getCampaign()).isEqualTo(event.getCampaign());
+                    assertThat(savedLead.orElseThrow().getTenant()).isNotNull();
+                    Long leadTenantId = savedLead.orElseThrow().getTenant().getId();
+                    assertThat(leadTenantId).isEqualTo(savedTenant.getId());
+                    assertThat(tenantRepository.findById(leadTenantId))
+                            .isPresent()
+                            .get()
+                            .extracting(Tenant::getApiKey)
+                            .isEqualTo("it-tenant-key");
                 });
+    }
+
+    @Test
+    void shouldSendFailedMessageToDlqWhenTenantIsMissing() {
+        LeadEventDTO event = new LeadEventDTO();
+        event.setMessageId("msg-dlq-" + UUID.randomUUID());
+        event.setPhone("+15550002222");
+        event.setMessage("this should fail");
+        event.setCampaign("integration-campaign");
+        event.setApiKey("missing-tenant-api-key");
+
+        rabbitTemplate.convertAndSend(RabbitConfig.EXCHANGE, RabbitConfig.ROUTING_KEY, event);
+
+        await()
+                .atMost(Duration.ofSeconds(20))
+                .untilAsserted(() -> {
+                    var dlqProps = amqpAdmin.getQueueProperties(RabbitConfig.DLQ);
+                    assertThat(dlqProps).isNotNull();
+                    Integer messageCount = (Integer) dlqProps.get(RabbitAdmin.QUEUE_MESSAGE_COUNT);
+                    assertThat(messageCount).isNotNull();
+                    assertThat(messageCount).isGreaterThan(0);
+                });
+
+        assertThat(leadRepository.findByMessageId(event.getMessageId())).isEmpty();
     }
 }

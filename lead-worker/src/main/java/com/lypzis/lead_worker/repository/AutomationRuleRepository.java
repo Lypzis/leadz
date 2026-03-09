@@ -8,5 +8,5 @@ import com.lypzis.lead_worker.entity.AutomationRule;
 
 public interface AutomationRuleRepository extends JpaRepository<AutomationRule, Long> {
 
-    List<AutomationRule> findAll();
+    List<AutomationRule> findByTenantId(Long tenantId);
 }

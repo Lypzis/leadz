@@ -2,7 +2,10 @@ package com.lypzis.lead_worker.service;
 
 import com.lypzis.lead_worker.dto.LeadEventDTO;
 import com.lypzis.lead_worker.entity.Lead;
+import com.lypzis.lead_worker.entity.Tenant;
 import com.lypzis.lead_worker.repository.LeadRepository;
+import com.lypzis.lead_worker.repository.TenantRepository;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -25,6 +28,18 @@ class LeadListenerTest {
     @Mock
     private LeadRepository leadRepository;
 
+    @Mock
+    private TenantRepository tenantRepository;
+
+    @Mock
+    private AutomationRuleService ruleService;
+
+    @Mock
+    private WhatsAppSender sender;
+
+    @Mock
+    private RabbitTemplate rabbitTemplate;
+
     @InjectMocks
     private LeadListener leadListener;
 
@@ -38,10 +53,19 @@ class LeadListenerTest {
         event.setPhone("+15551234567");
         event.setMessage("hello");
         event.setCampaign("campaign-a");
+        event.setApiKey("tenant-key");
 
+        Tenant tenant = Tenant.builder()
+                .name("Tenant A")
+                .apiKey("tenant-key")
+                .build();
+        tenant.setId(10L);
+
+        when(tenantRepository.findByApiKey("tenant-key")).thenReturn(Optional.of(tenant));
         when(leadRepository.findByMessageId("msg-001")).thenReturn(Optional.empty());
+        when(ruleService.matchRule("hello")).thenReturn(Optional.empty());
 
-        leadListener.handleLead(event);
+        leadListener.handleLead(event, 0L);
 
         verify(leadRepository).save(leadCaptor.capture());
         Lead savedLead = leadCaptor.getValue();
@@ -49,17 +73,30 @@ class LeadListenerTest {
         assertThat(savedLead.getPhone()).isEqualTo("+15551234567");
         assertThat(savedLead.getMessage()).isEqualTo("hello");
         assertThat(savedLead.getCampaign()).isEqualTo("campaign-a");
+        assertThat(savedLead.getTenant()).isNotNull();
+        assertThat(savedLead.getTenant().getId()).isEqualTo(10L);
+        assertThat(savedLead.getTenant().getApiKey()).isEqualTo("tenant-key");
     }
 
     @Test
     void handleLeadShouldIgnoreDuplicateMessage() {
         LeadEventDTO event = new LeadEventDTO();
         event.setMessageId("msg-dup");
+        event.setApiKey("tenant-key");
 
+        Tenant tenant = Tenant.builder()
+                .name("Tenant A")
+                .apiKey("tenant-key")
+                .build();
+        tenant.setId(10L);
+
+        Lead existingLead = Lead.builder().messageId("msg-dup").build();
+        existingLead.setId(1L);
+        when(tenantRepository.findByApiKey("tenant-key")).thenReturn(Optional.of(tenant));
         when(leadRepository.findByMessageId("msg-dup"))
-                .thenReturn(Optional.of(Lead.builder().id(1L).messageId("msg-dup").build()));
+                .thenReturn(Optional.of(existingLead));
 
-        leadListener.handleLead(event);
+        leadListener.handleLead(event, 0L);
 
         verify(leadRepository, never()).save(any(Lead.class));
     }

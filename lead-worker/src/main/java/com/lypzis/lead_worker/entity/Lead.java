@@ -8,14 +8,11 @@ import lombok.*;
         @UniqueConstraint(name = "uk_message_id", columnNames = "messageId")
 })
 @Data
+@EqualsAndHashCode(callSuper = true)
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class Lead {
-
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+public class Lead extends BaseEntity {
 
     private String messageId;
 
@@ -25,5 +22,9 @@ public class Lead {
     private String message;
 
     private String campaign;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "tenant_id")
+    private Tenant tenant;
 
 }
