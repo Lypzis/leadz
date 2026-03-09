@@ -1,6 +1,17 @@
 spring:
   application:
     name: lead-worker
+    
+  datasource:
+    url: ${SPRING_DATASOURCE_URL}
+    username: ${SPRING_DATASOURCE_USERNAME}
+    password: ${SPRING_DATASOURCE_PASSWORD}
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+
   rabbitmq:
     host: ${SPRING_RABBITMQ_HOST:rabbitmq}
     port: ${SPRING_RABBITMQ_PORT:5672}
