@@ -1,10 +1,10 @@
 package com.lypzis.lead_worker.service;
 
 import com.lypzis.lead_worker.config.RabbitConfig;
-import com.lypzis.lead_worker.dto.LeadEventDTO;
 import com.lypzis.lead_worker.entity.Tenant;
 import com.lypzis.lead_worker.repository.LeadRepository;
 import com.lypzis.lead_worker.repository.TenantRepository;
+import com.lypzis.lead_contracts.dto.LeadEventDTO;
 import org.springframework.amqp.core.AmqpAdmin;
 import org.springframework.amqp.rabbit.core.RabbitAdmin;
 import org.junit.jupiter.api.BeforeEach;

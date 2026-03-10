@@ -1,10 +1,11 @@
 package com.lypzis.lead_worker.service;
 
-import com.lypzis.lead_worker.dto.LeadEventDTO;
+import com.lypzis.lead_contracts.dto.LeadDTO;
 import com.lypzis.lead_worker.entity.Lead;
 import com.lypzis.lead_worker.entity.Tenant;
 import com.lypzis.lead_worker.repository.LeadRepository;
 import com.lypzis.lead_worker.repository.TenantRepository;
+import com.rabbitmq.client.Channel;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -40,6 +41,9 @@ class LeadListenerTest {
     @Mock
     private RabbitTemplate rabbitTemplate;
 
+    @Mock
+    private Channel channel;
+
     @InjectMocks
     private LeadListener leadListener;
 
@@ -47,13 +51,13 @@ class LeadListenerTest {
     private ArgumentCaptor<Lead> leadCaptor;
 
     @Test
-    void handleLeadShouldPersistWhenMessageIsNew() {
-        LeadEventDTO event = new LeadEventDTO();
+    void handleLeadShouldPersistWhenMessageIsNew() throws Exception {
+        LeadDTO event = new LeadDTO();
         event.setMessageId("msg-001");
         event.setPhone("+15551234567");
         event.setMessage("hello");
         event.setCampaign("campaign-a");
-        event.setApiKey("tenant-key");
+        event.setTenant("tenant-key");
 
         Tenant tenant = Tenant.builder()
                 .name("Tenant A")
@@ -65,7 +69,7 @@ class LeadListenerTest {
         when(leadRepository.findByMessageId("msg-001")).thenReturn(Optional.empty());
         when(ruleService.matchRule("hello")).thenReturn(Optional.empty());
 
-        leadListener.handleLead(event, 0L);
+        leadListener.handleLead(event, channel, null, 1L);
 
         verify(leadRepository).save(leadCaptor.capture());
         Lead savedLead = leadCaptor.getValue();
@@ -79,10 +83,10 @@ class LeadListenerTest {
     }
 
     @Test
-    void handleLeadShouldIgnoreDuplicateMessage() {
-        LeadEventDTO event = new LeadEventDTO();
+    void handleLeadShouldIgnoreDuplicateMessage() throws Exception {
+        LeadDTO event = new LeadDTO();
         event.setMessageId("msg-dup");
-        event.setApiKey("tenant-key");
+        event.setTenant("tenant-key");
 
         Tenant tenant = Tenant.builder()
                 .name("Tenant A")
@@ -96,7 +100,7 @@ class LeadListenerTest {
         when(leadRepository.findByMessageId("msg-dup"))
                 .thenReturn(Optional.of(existingLead));
 
-        leadListener.handleLead(event, 0L);
+        leadListener.handleLead(event, channel, null, 2L);
 
         verify(leadRepository, never()).save(any(Lead.class));
     }

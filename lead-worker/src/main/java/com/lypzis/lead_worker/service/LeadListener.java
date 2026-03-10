@@ -4,16 +4,20 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.amqp.support.AmqpHeaders;
+
+import java.io.IOException;
+
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.stereotype.Service;
 import org.springframework.messaging.handler.annotation.Header;
 
 import com.lypzis.lead_worker.config.RabbitConfig;
-import com.lypzis.lead_worker.dto.LeadEventDTO;
 import com.lypzis.lead_worker.entity.Lead;
 import com.lypzis.lead_worker.entity.Tenant;
 import com.lypzis.lead_worker.repository.LeadRepository;
 import com.lypzis.lead_worker.repository.TenantRepository;
+import com.lypzis.lead_contracts.dto.LeadDTO;
+import com.rabbitmq.client.Channel;
 
 @Service
 @RequiredArgsConstructor
@@ -29,11 +33,14 @@ public class LeadListener {
     private final RabbitTemplate rabbitTemplate;
 
     @RabbitListener(queues = RabbitConfig.MAIN_QUEUE)
-    public void handleLead(LeadEventDTO event,
-            @Header(name = AmqpHeaders.RETRY_COUNT, required = false) Long retryCount) {
+    public void handleLead(LeadDTO event, Channel channel,
+            @Header(name = AmqpHeaders.RETRY_COUNT, required = false) Long retryCount,
+            @Header(AmqpHeaders.DELIVERY_TAG) long tag) throws IOException {
         try {
 
             processLead(event);
+
+            channel.basicAck(tag, false);
 
         } catch (Exception e) {
             if (retryCount != null && retryCount >= MAX_RETRIES_BEFORE_DLQ) {
@@ -49,14 +56,14 @@ public class LeadListener {
         }
     }
 
-    private void processLead(LeadEventDTO event) {
+    private void processLead(LeadDTO event) {
         if (event.getVersion() != 1) {
             log.warn("Unsupported event version {}", event.getVersion());
             return;
         }
 
         Tenant tenant = tenantRepository
-                .findByApiKey(event.getApiKey())
+                .findByApiKey(event.getTenant())
                 .orElseThrow(() -> new RuntimeException("Tenant not found"));
 
         log.info("Received lead event {}", event.getMessageId());

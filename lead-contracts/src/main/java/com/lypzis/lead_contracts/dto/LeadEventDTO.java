@@ -1,10 +1,15 @@
-package com.lypzis.lead_api.dto;
+package com.lypzis.lead_contracts.dto;
+
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
 
 @Data
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class LeadEventDTO {
+
+    private int version = 1;
 
     @NotBlank
     private String messageId;
@@ -16,4 +21,6 @@ public class LeadEventDTO {
     private String message;
 
     private String campaign;
+
+    private String apiKey;
 }

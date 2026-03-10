@@ -2,11 +2,11 @@ COMPOSE_FILE ?= docker-compose.yml
 DOCKER_COMPOSE ?= docker compose -f $(COMPOSE_FILE)
 MVN_IMAGE ?= maven:3.9.9-eclipse-temurin-21
 WORKER_MVN_DOCKER ?= docker run --rm \
-	-v "$(CURDIR)/lead-worker:/app" \
+	-v "$(CURDIR):/app" \
 	-w /app \
 	-v "$(HOME)/.m2:/root/.m2" \
 	-v /var/run/docker.sock:/var/run/docker.sock \
-	$(MVN_IMAGE) ./mvnw -f pom.xml
+	$(MVN_IMAGE) mvn -B -ntp -f pom.xml -pl lead-worker -am
 SERVICE ?= lead-api
 FILE ?=
 

@@ -1,16 +1,17 @@
-package com.lypzis.lead_worker.dto;
+package com.lypzis.lead_contracts.dto;
+
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 import lombok.Data;
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 @Data
 @JsonIgnoreProperties(ignoreUnknown = true)
-public class LeadEventDTO {
+public class LeadDTO {
 
     private int version = 1;
     private String messageId;
     private String phone;
     private String message;
     private String campaign;
-    private String apiKey;
+    private String tenant;
 }

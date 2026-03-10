@@ -1,8 +1,7 @@
 package com.lypzis.lead_api.controller;
 
-import com.lypzis.lead_api.dto.LeadEventDTO;
 import com.lypzis.lead_api.service.LeadPublisherService;
-import jakarta.validation.Valid;
+import com.lypzis.lead_contracts.dto.LeadEventDTO;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -14,10 +13,12 @@ public class WebhookController {
 
     private final LeadPublisherService publisherService;
 
-    @PostMapping
-    public ResponseEntity<Void> receiveLead(@Valid @RequestBody LeadEventDTO event) {
+    @PostMapping("/webhook/whatsapp")
+    public ResponseEntity<Void> receiveMessage(
+            @RequestHeader("X-API-Key") String apiKey,
+            @RequestBody LeadEventDTO request) {
 
-        publisherService.publish(event);
+        publisherService.publish(apiKey, request);
 
         return ResponseEntity.accepted().build();
     }
