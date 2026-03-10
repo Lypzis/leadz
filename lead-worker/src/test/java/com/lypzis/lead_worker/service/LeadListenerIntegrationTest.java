@@ -21,9 +21,9 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 import com.lypzis.lead_contracts.dto.LeadDTO;
+import com.lypzis.lead_contracts.dto.LeadStatusEnum;
 import com.lypzis.lead_contracts.dto.MessageDirectionEnum;
 import com.lypzis.lead_worker.config.RabbitConfig;
-import com.lypzis.lead_domain.entity.LeadStatus;
 import com.lypzis.lead_domain.repository.LeadMessageRepository;
 import com.lypzis.lead_domain.repository.LeadRepository;
 import com.lypzis.lead_domain.repository.ProcessedMessageRepository;
@@ -97,19 +97,19 @@ class LeadListenerIntegrationTest {
         await()
                 .atMost(Duration.ofSeconds(10))
                 .untilAsserted(() -> {
-                    var savedLead = leadRepository.findByTenantAndPhone(event.getTenant(), event.getPhone());
+                    var savedLead = leadRepository.findByTenantIdAndPhone(event.getTenant(), event.getPhone());
                     assertThat(savedLead).isPresent();
                     assertThat(savedLead.orElseThrow().getPhone()).isEqualTo(event.getPhone());
                     assertThat(savedLead.orElseThrow().getCampaign()).isEqualTo(event.getCampaign());
-                    assertThat(savedLead.orElseThrow().getStatus()).isEqualTo(LeadStatus.NEW);
-                    assertThat(savedLead.orElseThrow().getTenant()).isEqualTo(event.getTenant());
+                    assertThat(savedLead.orElseThrow().getStatus()).isEqualTo(LeadStatusEnum.NEW);
+                    assertThat(savedLead.orElseThrow().getTenantId()).isEqualTo(event.getTenant());
                     var messages = leadMessageRepository.findByLeadIdOrderByCreatedAtAsc(
                             savedLead.orElseThrow().getId());
                     assertThat(messages).hasSize(1);
                     assertThat(messages.get(0).getDirection()).isEqualTo(MessageDirectionEnum.INBOUND);
                     assertThat(messages.get(0).getContent()).isEqualTo(event.getMessage());
                     assertThat(messages.get(0).getMessageId()).isEqualTo(event.getMessageId());
-                    assertThat(processedMessageRepository.existsByTenantAndMessageId(
+                    assertThat(processedMessageRepository.existsByTenantIdAndMessageId(
                             event.getTenant(),
                             event.getMessageId())).isTrue();
                 });
@@ -129,9 +129,10 @@ class LeadListenerIntegrationTest {
         await()
                 .atMost(Duration.ofSeconds(10))
                 .untilAsserted(() -> assertThat(
-                        processedMessageRepository.existsByTenantAndMessageId(
+                        processedMessageRepository.existsByTenantIdAndMessageId(
                                 event.getTenant(),
-                                event.getMessageId())).isTrue());
+                                event.getMessageId()))
+                        .isTrue());
 
         rabbitTemplate.convertAndSend(RabbitConfig.EXCHANGE, RabbitConfig.ROUTING_KEY, event);
 
@@ -168,11 +169,13 @@ class LeadListenerIntegrationTest {
         await()
                 .atMost(Duration.ofSeconds(10))
                 .untilAsserted(() -> {
-                    assertThat(leadRepository.findByTenantAndPhone("tenant-a", tenantAEvent.getPhone())).isPresent();
-                    assertThat(leadRepository.findByTenantAndPhone("tenant-b", tenantBEvent.getPhone())).isPresent();
+                    assertThat(leadRepository.findByTenantIdAndPhone("tenant-a", tenantAEvent.getPhone())).isPresent();
+                    assertThat(leadRepository.findByTenantIdAndPhone("tenant-b", tenantBEvent.getPhone())).isPresent();
                     assertThat(leadMessageRepository.count()).isEqualTo(2L);
-                    assertThat(processedMessageRepository.existsByTenantAndMessageId("tenant-a", sharedMessageId)).isTrue();
-                    assertThat(processedMessageRepository.existsByTenantAndMessageId("tenant-b", sharedMessageId)).isTrue();
+                    assertThat(processedMessageRepository.existsByTenantIdAndMessageId("tenant-a", sharedMessageId))
+                            .isTrue();
+                    assertThat(processedMessageRepository.existsByTenantIdAndMessageId("tenant-b", sharedMessageId))
+                            .isTrue();
                 });
     }
 }

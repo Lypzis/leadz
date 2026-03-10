@@ -4,9 +4,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.lypzis.lead_contracts.dto.LeadDTO;
+import com.lypzis.lead_contracts.dto.LeadStatusEnum;
 import com.lypzis.lead_contracts.dto.ProcessingResultEnum;
 import com.lypzis.lead_domain.entity.Lead;
-import com.lypzis.lead_domain.entity.LeadStatus;
 import com.lypzis.lead_domain.repository.LeadRepository;
 
 import lombok.RequiredArgsConstructor;
@@ -23,18 +23,18 @@ public class LeadService {
     private final AutomationExecutor automationExecutor;
     private final IdempotencyService idempotencyService;
 
-    public Lead findOrCreateLead(String tenant, String phone, String campaign) {
-        return leadRepository.findByTenantAndPhone(tenant, phone)
+    public Lead findOrCreateLead(String tenantId, String phone, String campaign) {
+        return leadRepository.findByTenantIdAndPhone(tenantId, phone)
                 .orElseGet(() -> leadRepository.save(
                         Lead.builder()
-                                .tenant(tenant)
+                                .tenantId(tenantId)
                                 .phone(phone)
-                                .status(LeadStatus.NEW)
+                                .status(LeadStatusEnum.NEW)
                                 .campaign(campaign)
                                 .build()));
     }
 
-    public void updateStatus(Lead lead, LeadStatus status) {
+    public void updateStatus(Lead lead, LeadStatusEnum status) {
         lead.setStatus(status);
         leadRepository.save(lead);
     }

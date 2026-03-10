@@ -7,10 +7,10 @@ import lombok.*;
 
 @Entity
 @Table(name = "lead_messages", indexes = {
-        @Index(name = "idx_lead_messages_lead_created_at", columnList = "lead_id,createdAt"),
-        @Index(name = "idx_lead_messages_tenant_message_id", columnList = "tenant,messageId")
+        @Index(name = "idx_lead_messages_lead_created_at", columnList = "lead_id,created_at"),
+        @Index(name = "idx_lead_messages_tenant_id_message_id", columnList = "tenant_id,message_id")
 }, uniqueConstraints = {
-        @UniqueConstraint(name = "uk_lead_messages_tenant_message_id", columnNames = { "tenant", "messageId" })
+        @UniqueConstraint(name = "uk_lead_messages_tenant_id_message_id", columnNames = { "tenant_id", "message_id" })
 })
 @Data
 @EqualsAndHashCode(callSuper = true)
@@ -19,10 +19,10 @@ import lombok.*;
 @Builder
 public class LeadMessage extends BaseEntity {
 
-    @Column(nullable = false)
-    private String tenant;
+    @Column(name = "tenant_id", nullable = false)
+    private String tenantId;
 
-    @Column(nullable = false)
+    @Column(name = "message_id", nullable = false)
     private String messageId;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)

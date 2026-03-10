@@ -45,12 +45,12 @@ class LeadPublisherServiceTest {
     @Test
     void shouldThrowTooManyRequestsWhenRateLimitExceeded() {
         Tenant tenant = activeTenant("tenant-key", 60);
-        when(tenantService.resolveTenant("tenant-key")).thenReturn(tenant);
+        when(tenantService.getCurrentTenant()).thenReturn(tenant);
         when(rateLimiter.allow("tenant-key", 60)).thenReturn(false);
 
         RateLimitExceededException exception = assertThrows(
                 RateLimitExceededException.class,
-                () -> service.publish("tenant-key", sampleEvent()));
+                () -> service.publish(sampleEvent()));
 
         assertThat(exception.getMessage()).isEqualTo("Rate limit exceeded");
         verifyNoInteractions(rabbitTemplate);
@@ -58,12 +58,12 @@ class LeadPublisherServiceTest {
 
     @Test
     void shouldThrowUnauthorizedWhenTenantCannotBeResolved() {
-        when(tenantService.resolveTenant("tenant-key"))
+        when(tenantService.getCurrentTenant())
                 .thenThrow(new UnauthorizedException("Invalid or inactive API key"));
 
         UnauthorizedException exception = assertThrows(
                 UnauthorizedException.class,
-                () -> service.publish("tenant-key", sampleEvent()));
+                () -> service.publish(sampleEvent()));
 
         assertThat(exception.getMessage()).isEqualTo("Invalid or inactive API key");
         verifyNoInteractions(rateLimiter, rabbitTemplate);
@@ -75,10 +75,10 @@ class LeadPublisherServiceTest {
         LeadEventDTO event = sampleEvent();
         event.setApiKey("spoofed-body-key");
 
-        when(tenantService.resolveTenant("tenant-key")).thenReturn(tenant);
+        when(tenantService.getCurrentTenant()).thenReturn(tenant);
         when(rateLimiter.allow("tenant-key", 75)).thenReturn(true);
 
-        service.publish("tenant-key", event);
+        service.publish(event);
 
         verify(rateLimiter).allow("tenant-key", 75);
         verify(rabbitTemplate).convertAndSend(

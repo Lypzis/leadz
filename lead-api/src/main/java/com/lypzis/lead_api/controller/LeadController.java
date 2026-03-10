@@ -11,9 +11,9 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.lypzis.lead_api.service.LeadQueryService;
+import com.lypzis.lead_contracts.dto.LeadStatusEnum;
 import com.lypzis.lead_domain.entity.Lead;
 import com.lypzis.lead_domain.entity.LeadMessage;
-import com.lypzis.lead_domain.entity.LeadStatus;
 
 import lombok.RequiredArgsConstructor;
 
@@ -26,11 +26,15 @@ public class LeadController {
 
     @GetMapping
     public Page<Lead> listLeads(
-            @RequestParam String tenant,
-            @RequestParam(required = false) LeadStatus status,
+            @RequestParam(required = false) LeadStatusEnum status,
             Pageable pageable) {
 
-        return service.listLeads(tenant, status, pageable);
+        return service.listLeads(status, pageable);
+    }
+
+    @GetMapping("/{id}")
+    public Lead getById(@PathVariable Long id) {
+        return service.getById(id);
     }
 
     @GetMapping("/{leadId}/timeline")

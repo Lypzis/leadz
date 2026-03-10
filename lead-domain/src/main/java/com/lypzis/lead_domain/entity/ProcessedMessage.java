@@ -9,15 +9,17 @@ import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
 
 @Entity
-@Table(name = "processed_messages", uniqueConstraints = @UniqueConstraint(columnNames = { "tenant", "message_id" }))
+@Table(name = "processed_messages", uniqueConstraints = @UniqueConstraint(columnNames = { "tenant_id", "message_id" }))
 @Data
 @EqualsAndHashCode(callSuper = true)
 @NoArgsConstructor
 @AllArgsConstructor
 public class ProcessedMessage extends BaseEntity {
 
-    private String tenant;
+    @Column(name = "tenant_id", nullable = false)
+    private String tenantId;
 
+    @Column(name = "message_id", nullable = false)
     private String messageId;
 
     private Instant processedAt = Instant.now();

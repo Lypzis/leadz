@@ -17,10 +17,10 @@ public class LeadMessageService {
 
     private final LeadMessageRepository leadMessageRepository;
 
-    public LeadMessage saveInbound(Lead lead, String tenant, String messageId, String content) {
+    public LeadMessage saveInbound(Lead lead, String tenantId, String messageId, String content) {
         return leadMessageRepository.save(
                 LeadMessage.builder()
-                        .tenant(tenant)
+                        .tenantId(tenantId)
                         .messageId(messageId)
                         .lead(lead)
                         .direction(MessageDirectionEnum.INBOUND)
@@ -28,10 +28,10 @@ public class LeadMessageService {
                         .build());
     }
 
-    public LeadMessage saveOutbound(Lead lead, String tenant, String content) {
+    public LeadMessage saveOutbound(Lead lead, String tenantId, String content) {
         return leadMessageRepository.save(
                 LeadMessage.builder()
-                        .tenant(tenant)
+                        .tenantId(tenantId)
                         .messageId("out-" + UUID.randomUUID())
                         .lead(lead)
                         // TODO For outbound, later add a dedicated response message ID from WhatsApp

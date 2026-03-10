@@ -3,6 +3,7 @@ package com.lypzis.lead_api.service;
 import java.util.List;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.lypzis.lead_contracts.dto.CreateTenantRequestDTO;
 import com.lypzis.lead_contracts.dto.TenantResponseDTO;
@@ -19,7 +20,9 @@ public class TenantManagementService {
 
     private final TenantRepository tenantRepository;
     private final ApiKeyGenerator apiKeyGenerator;
+    private final AdminUserProvisioningService adminUserProvisioningService;
 
+    @Transactional
     public TenantResponseDTO create(CreateTenantRequestDTO request) {
         Tenant tenant = new Tenant();
         tenant.setName(request.name());
@@ -29,6 +32,7 @@ public class TenantManagementService {
         tenant.setApiKey(apiKeyGenerator.generate());
 
         Tenant saved = tenantRepository.save(tenant);
+        adminUserProvisioningService.createInitialAdmin(saved, request.adminEmail(), request.adminPassword());
         return toResponse(saved);
     }
 

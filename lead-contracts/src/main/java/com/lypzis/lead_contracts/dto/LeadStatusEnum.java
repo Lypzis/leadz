@@ -1,6 +1,6 @@
-package com.lypzis.lead_domain.entity;
+package com.lypzis.lead_contracts.dto;
 
-public enum LeadStatus {
+public enum LeadStatusEnum {
     NEW,
     AUTO_REPLIED,
     WAITING_CUSTOMER,

@@ -25,7 +25,7 @@ reset-db:
 	@$(DOCKER_COMPOSE) down -v --remove-orphans
 
 enter-db:
-	@$(DOCKER_COMPOSE) exec postgres psql -U leaduser -d leadz
+	@$(DOCKER_COMPOSE) exec postgres psql -U $${POSTGRES_USER} -d $${POSTGRES_DB}
 
 build:
 	@$(DOCKER_COMPOSE) build

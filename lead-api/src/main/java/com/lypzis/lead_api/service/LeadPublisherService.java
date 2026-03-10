@@ -18,11 +18,11 @@ public class LeadPublisherService {
     private final TenantRateLimiterService rateLimiter;
     private final TenantService tenantService;
 
-    public void publish(String apiKey, LeadEventDTO event) {
+    public void publish(LeadEventDTO event) {
 
-        Tenant tenant = tenantService.resolveTenant(apiKey);
+        Tenant tenant = tenantService.getCurrentTenant();
 
-        if (!rateLimiter.allow(apiKey, tenant.getRequestsPerMinute())) {
+        if (!rateLimiter.allow(tenant.getApiKey(), tenant.getRequestsPerMinute())) {
             throw new RateLimitExceededException("Rate limit exceeded");
         }
 

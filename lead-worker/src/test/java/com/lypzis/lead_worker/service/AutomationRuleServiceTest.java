@@ -28,7 +28,7 @@ class AutomationRuleServiceTest {
 
     @Test
     void matchRuleShouldReturnEmptyWhenNoRuleMatches() {
-        when(ruleRepository.findByTenantOrderByPriorityDesc("tenant-a"))
+        when(ruleRepository.findByTenantIdOrderByPriorityDesc("tenant-a"))
                 .thenReturn(List.of(
                         rule("tenant-a", "sale", 10),
                         rule("tenant-a", "help", 8)));
@@ -38,13 +38,13 @@ class AutomationRuleServiceTest {
                 "just saying hello there");
 
         assertThat(result).isEmpty();
-        verify(ruleRepository).findByTenantOrderByPriorityDesc("tenant-a");
+        verify(ruleRepository).findByTenantIdOrderByPriorityDesc("tenant-a");
     }
 
     @Test
     void matchRuleShouldBeCaseInsensitive() {
         AutomationRule promoRule = rule("tenant-a", "promo", 7);
-        when(ruleRepository.findByTenantOrderByPriorityDesc("tenant-a"))
+        when(ruleRepository.findByTenantIdOrderByPriorityDesc("tenant-a"))
                 .thenReturn(List.of(promoRule));
 
         Optional<AutomationRule> result = automationRuleService.matchRule(
@@ -59,7 +59,7 @@ class AutomationRuleServiceTest {
         AutomationRule highPriorityRule = rule("tenant-a", "lead", 20);
         AutomationRule lowPriorityRule = rule("tenant-a", "lead", 5);
 
-        when(ruleRepository.findByTenantOrderByPriorityDesc("tenant-a"))
+        when(ruleRepository.findByTenantIdOrderByPriorityDesc("tenant-a"))
                 .thenReturn(List.of(highPriorityRule, lowPriorityRule));
 
         Optional<AutomationRule> result = automationRuleService.matchRule(
@@ -71,7 +71,7 @@ class AutomationRuleServiceTest {
 
     private AutomationRule rule(String tenant, String keyword, int priority) {
         return AutomationRule.builder()
-                .tenant(tenant)
+                .tenantId(tenant)
                 .keyword(keyword)
                 .priority(priority)
                 .actionType(AutomationActionTypeEnum.SEND_MESSAGE)

@@ -2,9 +2,9 @@ package com.lypzis.lead_worker.service;
 
 import org.springframework.stereotype.Service;
 
+import com.lypzis.lead_contracts.dto.LeadStatusEnum;
 import com.lypzis.lead_domain.entity.AutomationRule;
 import com.lypzis.lead_domain.entity.Lead;
-import com.lypzis.lead_domain.entity.LeadStatus;
 import com.lypzis.lead_domain.repository.LeadRepository;
 
 import lombok.RequiredArgsConstructor;
@@ -15,13 +15,13 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class AutomationExecutor {
 
-    private final MessageSender sender;
+    private final WhatsAppSender sender;
     private final LeadMessageService leadMessageService;
     private final LeadRepository leadRepository;
 
-    private LeadStatus parseStatus(String value) {
+    private LeadStatusEnum parseStatus(String value) {
         try {
-            return LeadStatus.valueOf(value);
+            return LeadStatusEnum.valueOf(value);
         } catch (IllegalArgumentException e) {
             throw new IllegalStateException("Invalid lead status: " + value, e);
         }
@@ -35,7 +35,7 @@ public class AutomationExecutor {
         }
 
         if (rule.getActionType() == null) {
-            log.warn("Skipping automation execution because actionType is null for tenant {}", rule.getTenant());
+            log.warn("Skipping automation execution because actionType is null for tenant {}", rule.getTenantId());
             return;
         }
 
@@ -45,7 +45,7 @@ public class AutomationExecutor {
 
                 if (isBlank(rule.getActionPayload()) || isBlank(phone)) {
                     log.warn("Skipping SEND_MESSAGE action due to blank payload or phone for tenant {}",
-                            rule.getTenant());
+                            rule.getTenantId());
                     return;
                 }
 
@@ -53,17 +53,17 @@ public class AutomationExecutor {
 
                 leadMessageService.saveOutbound(
                         lead,
-                        lead.getTenant(),
+                        lead.getTenantId(),
                         rule.getActionPayload());
 
-                lead.setStatus(LeadStatus.WAITING_CUSTOMER);
+                lead.setStatus(LeadStatusEnum.WAITING_CUSTOMER);
                 leadRepository.save(lead);
             }
 
             case CHANGE_STATUS -> {
 
                 if (isBlank(rule.getActionPayload())) {
-                    log.warn("Skipping CHANGE_STATUS action due to blank payload for tenant {}", rule.getTenant());
+                    log.warn("Skipping CHANGE_STATUS action due to blank payload for tenant {}", rule.getTenantId());
                     return;
                 }
 

@@ -8,5 +8,5 @@ import com.lypzis.lead_domain.entity.ProcessedMessage;
 @Repository
 public interface ProcessedMessageRepository extends JpaRepository<ProcessedMessage, Long> {
 
-    boolean existsByTenantAndMessageId(String tenant, String messageId);
+    boolean existsByTenantIdAndMessageId(String tenantId, String messageId);
 }

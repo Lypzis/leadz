@@ -14,11 +14,9 @@ public class WebhookController {
     private final LeadPublisherService publisherService;
 
     @PostMapping
-    public ResponseEntity<Void> receiveMessage(
-            @RequestHeader("X-API-Key") String apiKey,
-            @RequestBody LeadEventDTO request) {
+    public ResponseEntity<Void> receiveMessage(@RequestBody LeadEventDTO request) {
 
-        publisherService.publish(apiKey, request);
+        publisherService.publish(request);
 
         return ResponseEntity.accepted().build();
     }

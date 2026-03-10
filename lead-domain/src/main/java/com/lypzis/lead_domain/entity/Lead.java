@@ -1,14 +1,16 @@
 package com.lypzis.lead_domain.entity;
 
+import com.lypzis.lead_contracts.dto.LeadStatusEnum;
+
 import jakarta.persistence.*;
 import lombok.*;
 
 @Entity
 @Table(name = "leads", indexes = {
-                @Index(name = "idx_leads_tenant_phone", columnList = "tenant,phone"),
-                @Index(name = "idx_leads_tenant_status", columnList = "tenant,status")
+                @Index(name = "idx_leads_tenant_id_phone", columnList = "tenant_id,phone"),
+                @Index(name = "idx_leads_tenant_id_status", columnList = "tenant_id,status")
 }, uniqueConstraints = {
-                @UniqueConstraint(name = "uk_leads_tenant_phone", columnNames = { "tenant", "phone" })
+                @UniqueConstraint(name = "uk_leads_tenant_id_phone", columnNames = { "tenant_id", "phone" })
 })
 @Data
 @EqualsAndHashCode(callSuper = true)
@@ -17,8 +19,8 @@ import lombok.*;
 @Builder
 public class Lead extends BaseEntity {
 
-        @Column(nullable = false)
-        private String tenant;
+        @Column(name = "tenant_id", nullable = false)
+        private String tenantId;
 
         @Column(nullable = false)
         private String phone;
@@ -27,5 +29,5 @@ public class Lead extends BaseEntity {
 
         @Enumerated(EnumType.STRING)
         @Column(nullable = false, length = 30)
-        private LeadStatus status;
+        private LeadStatusEnum status;
 }

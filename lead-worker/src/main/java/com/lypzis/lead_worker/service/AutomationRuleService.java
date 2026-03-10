@@ -16,11 +16,11 @@ public class AutomationRuleService {
 
     private final AutomationRuleRepository ruleRepository;
 
-    public Optional<AutomationRule> matchRule(String tenant, String message) {
+    public Optional<AutomationRule> matchRule(String tenantId, String message) {
 
         String msg = message.toLowerCase();
 
-        List<AutomationRule> rules = ruleRepository.findByTenantOrderByPriorityDesc(tenant);
+        List<AutomationRule> rules = ruleRepository.findByTenantIdOrderByPriorityDesc(tenantId);
 
         for (AutomationRule rule : rules) {
 

@@ -13,14 +13,14 @@ public class IdempotencyService {
 
     private final ProcessedMessageRepository repository;
 
-    public boolean alreadyProcessed(String tenant, String messageId) {
-        return repository.existsByTenantAndMessageId(tenant, messageId);
+    public boolean alreadyProcessed(String tenantId, String messageId) {
+        return repository.existsByTenantIdAndMessageId(tenantId, messageId);
     }
 
-    public void markProcessed(String tenant, String messageId) {
+    public void markProcessed(String tenantId, String messageId) {
 
         ProcessedMessage record = new ProcessedMessage();
-        record.setTenant(tenant);
+        record.setTenantId(tenantId);
         record.setMessageId(messageId);
 
         repository.save(record);

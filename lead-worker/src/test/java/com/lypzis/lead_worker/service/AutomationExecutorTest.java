@@ -12,16 +12,16 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.lypzis.lead_contracts.dto.AutomationActionTypeEnum;
+import com.lypzis.lead_contracts.dto.LeadStatusEnum;
 import com.lypzis.lead_domain.entity.AutomationRule;
 import com.lypzis.lead_domain.entity.Lead;
-import com.lypzis.lead_domain.entity.LeadStatus;
 import com.lypzis.lead_domain.repository.LeadRepository;
 
 @ExtendWith(MockitoExtension.class)
 class AutomationExecutorTest {
 
     @Mock
-    private MessageSender sender;
+    private WhatsAppSender sender;
 
     @Mock
     private LeadMessageService leadMessageService;
@@ -42,7 +42,7 @@ class AutomationExecutorTest {
 
         verify(sender).sendMessage("+15550001111", "hello back");
         verify(leadMessageService).saveOutbound(lead, "tenant-a", "hello back");
-        assertThat(lead.getStatus()).isEqualTo(LeadStatus.WAITING_CUSTOMER);
+        assertThat(lead.getStatus()).isEqualTo(LeadStatusEnum.WAITING_CUSTOMER);
         verify(leadRepository).save(lead);
     }
 
@@ -54,7 +54,7 @@ class AutomationExecutorTest {
 
         automationExecutor.execute(rule, lead, "+15550001111");
 
-        assertThat(lead.getStatus()).isEqualTo(LeadStatus.QUALIFIED);
+        assertThat(lead.getStatus()).isEqualTo(LeadStatusEnum.QUALIFIED);
         verify(leadRepository).save(lead);
         verifyNoInteractions(sender, leadMessageService);
     }
@@ -96,22 +96,22 @@ class AutomationExecutorTest {
 
         automationExecutor.execute(rule, lead, "+15550001111");
 
-        assertThat(lead.getStatus()).isEqualTo(LeadStatus.NEW);
+        assertThat(lead.getStatus()).isEqualTo(LeadStatusEnum.NEW);
         verifyNoInteractions(sender, leadMessageService, leadRepository);
     }
 
     private Lead sampleLead() {
         return Lead.builder()
-                .tenant("tenant-a")
+                .tenantId("tenant-a")
                 .phone("+15550001111")
-                .status(LeadStatus.NEW)
+                .status(LeadStatusEnum.NEW)
                 .campaign("cmp-a")
                 .build();
     }
 
     private AutomationRule rule(AutomationActionTypeEnum type, String payload) {
         return AutomationRule.builder()
-                .tenant("tenant-a")
+                .tenantId("tenant-a")
                 .keyword("hello")
                 .priority(10)
                 .actionType(type)

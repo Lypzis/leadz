@@ -7,7 +7,7 @@ import lombok.*;
 
 @Entity
 @Table(name = "automation_rules", indexes = {
-        @Index(name = "idx_rules_tenant", columnList = "tenant"),
+        @Index(name = "idx_rules_tenant_id", columnList = "tenant_id"),
         @Index(name = "idx_rules_keyword", columnList = "keyword")
 })
 @Data
@@ -17,7 +17,8 @@ import lombok.*;
 @Builder
 public class AutomationRule extends BaseEntity {
 
-    private String tenant;
+    @Column(name = "tenant_id", nullable = false)
+    private String tenantId;
 
     private String keyword;
 
