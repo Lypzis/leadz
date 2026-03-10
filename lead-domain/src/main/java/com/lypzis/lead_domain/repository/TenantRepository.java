@@ -1,4 +1,4 @@
-package com.lypzis.lead_api.repository;
+package com.lypzis.lead_domain.repository;
 
 import java.util.Optional;
 

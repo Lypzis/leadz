@@ -21,6 +21,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.lypzis.lead_contracts.dto.AutomationActionTypeEnum;
 import com.lypzis.lead_contracts.dto.LeadDTO;
+import com.lypzis.lead_contracts.dto.ProcessingResultEnum;
 import com.lypzis.lead_domain.entity.AutomationRule;
 import com.lypzis.lead_domain.entity.Lead;
 import com.lypzis.lead_domain.entity.LeadStatus;
@@ -29,151 +30,178 @@ import com.lypzis.lead_domain.repository.LeadRepository;
 @ExtendWith(MockitoExtension.class)
 class LeadServiceTest {
 
-    @Mock
-    private LeadRepository leadRepository;
+        @Mock
+        private LeadRepository leadRepository;
 
-    @Mock
-    private AutomationRuleService ruleService;
+        @Mock
+        private AutomationRuleService ruleService;
 
-    @Mock
-    private LeadMessageService leadMessageService;
+        @Mock
+        private LeadMessageService leadMessageService;
 
-    @Mock
-    private AutomationExecutor automationExecutor;
+        @Mock
+        private AutomationExecutor automationExecutor;
 
-    @InjectMocks
-    private LeadService leadService;
+        @Mock
+        private IdempotencyService idempotencyService;
 
-    @Captor
-    private ArgumentCaptor<Lead> leadCaptor;
+        @InjectMocks
+        private LeadService leadService;
 
-    @Test
-    void findOrCreateLeadShouldReturnExistingLead() {
-        Lead existing = Lead.builder()
-                .tenant("tenant-a")
-                .phone("+15550000001")
-                .status(LeadStatus.QUALIFIED)
-                .campaign("cmp-a")
-                .build();
+        @Captor
+        private ArgumentCaptor<Lead> leadCaptor;
 
-        when(leadRepository.findByTenantAndPhone("tenant-a", "+15550000001"))
-                .thenReturn(Optional.of(existing));
+        @Test
+        void findOrCreateLeadShouldReturnExistingLead() {
+                Lead existing = Lead.builder()
+                                .tenant("tenant-a")
+                                .phone("+15550000001")
+                                .status(LeadStatus.QUALIFIED)
+                                .campaign("cmp-a")
+                                .build();
 
-        Lead result = leadService.findOrCreateLead("tenant-a", "+15550000001", "cmp-a");
+                when(leadRepository.findByTenantAndPhone("tenant-a", "+15550000001"))
+                                .thenReturn(Optional.of(existing));
 
-        assertThat(result).isSameAs(existing);
-        verify(leadRepository, never()).save(any(Lead.class));
-    }
+                Lead result = leadService.findOrCreateLead("tenant-a", "+15550000001", "cmp-a");
 
-    @Test
-    void findOrCreateLeadShouldCreateLeadWhenNotFound() {
-        when(leadRepository.findByTenantAndPhone("tenant-a", "+15550000002"))
-                .thenReturn(Optional.empty());
+                assertThat(result).isSameAs(existing);
+                verify(leadRepository, never()).save(any(Lead.class));
+        }
 
-        Lead persisted = Lead.builder()
-                .tenant("tenant-a")
-                .phone("+15550000002")
-                .status(LeadStatus.NEW)
-                .campaign("cmp-b")
-                .build();
-        persisted.setId(10L);
+        @Test
+        void findOrCreateLeadShouldCreateLeadWhenNotFound() {
+                when(leadRepository.findByTenantAndPhone("tenant-a", "+15550000002"))
+                                .thenReturn(Optional.empty());
 
-        when(leadRepository.save(any(Lead.class))).thenReturn(persisted);
+                Lead persisted = Lead.builder()
+                                .tenant("tenant-a")
+                                .phone("+15550000002")
+                                .status(LeadStatus.NEW)
+                                .campaign("cmp-b")
+                                .build();
+                persisted.setId(10L);
 
-        Lead result = leadService.findOrCreateLead("tenant-a", "+15550000002", "cmp-b");
+                when(leadRepository.save(any(Lead.class))).thenReturn(persisted);
 
-        verify(leadRepository).save(leadCaptor.capture());
-        Lead saved = leadCaptor.getValue();
-        assertThat(saved.getTenant()).isEqualTo("tenant-a");
-        assertThat(saved.getPhone()).isEqualTo("+15550000002");
-        assertThat(saved.getStatus()).isEqualTo(LeadStatus.NEW);
-        assertThat(saved.getCampaign()).isEqualTo("cmp-b");
-        assertThat(result).isSameAs(persisted);
-    }
+                Lead result = leadService.findOrCreateLead("tenant-a", "+15550000002", "cmp-b");
 
-    @Test
-    void processLeadShouldSkipUnsupportedVersion() {
-        LeadDTO event = sampleEvent();
-        event.setVersion(2);
+                verify(leadRepository).save(leadCaptor.capture());
+                Lead saved = leadCaptor.getValue();
+                assertThat(saved.getTenant()).isEqualTo("tenant-a");
+                assertThat(saved.getPhone()).isEqualTo("+15550000002");
+                assertThat(saved.getStatus()).isEqualTo(LeadStatus.NEW);
+                assertThat(saved.getCampaign()).isEqualTo("cmp-b");
+                assertThat(result).isSameAs(persisted);
+        }
 
-        leadService.processLead(event);
+        @Test
+        void processLeadShouldSkipUnsupportedVersion() {
+                LeadDTO event = sampleEvent();
+                event.setVersion(2);
 
-        verify(leadRepository, never()).findByTenantAndPhone(any(), any());
-        verify(leadRepository, never()).save(any(Lead.class));
-        verifyNoInteractions(ruleService, leadMessageService, automationExecutor);
-    }
+                ProcessingResultEnum result = leadService.processLeadTransactionally(event);
 
-    @Test
-    void processLeadShouldSaveInboundAndNotExecuteAutomationWhenNoRuleMatches() {
-        LeadDTO event = sampleEvent();
-        Lead existing = Lead.builder()
-                .tenant(event.getTenant())
-                .phone(event.getPhone())
-                .status(LeadStatus.NEW)
-                .campaign(event.getCampaign())
-                .build();
+                assertThat(result).isEqualTo(ProcessingResultEnum.UNSUPPORTED_VERSION);
+                verify(leadRepository, never()).findByTenantAndPhone(any(), any());
+                verify(leadRepository, never()).save(any(Lead.class));
+                verifyNoInteractions(idempotencyService, ruleService, leadMessageService, automationExecutor);
+        }
 
-        when(leadRepository.findByTenantAndPhone(event.getTenant(), event.getPhone()))
-                .thenReturn(Optional.of(existing));
-        when(ruleService.matchRule(event.getTenant(), event.getMessage()))
-                .thenReturn(Optional.empty());
+        @Test
+        void processLeadShouldIgnoreDuplicateMessage() {
+                LeadDTO event = sampleEvent();
+                when(idempotencyService.alreadyProcessed(event.getTenant(), event.getMessageId())).thenReturn(true);
 
-        leadService.processLead(event);
+                ProcessingResultEnum result = leadService.processLeadTransactionally(event);
 
-        verify(leadRepository).findByTenantAndPhone(event.getTenant(), event.getPhone());
-        verify(leadMessageService).saveInbound(
-                existing,
-                event.getTenant(),
-                event.getMessageId(),
-                event.getMessage());
-        verify(ruleService).matchRule(event.getTenant(), event.getMessage());
-        verifyNoInteractions(automationExecutor);
-    }
+                assertThat(result).isEqualTo(ProcessingResultEnum.DUPLICATE_IGNORED);
+                verify(idempotencyService).alreadyProcessed(event.getTenant(), event.getMessageId());
+                verify(leadRepository, never()).findByTenantAndPhone(any(), any());
+                verifyNoInteractions(ruleService, leadMessageService, automationExecutor);
+                verify(idempotencyService, never()).markProcessed(any(), any());
+        }
 
-    @Test
-    void processLeadShouldSaveInboundAndExecuteAutomationWhenRuleMatches() {
-        LeadDTO event = sampleEvent();
-        Lead existing = Lead.builder()
-                .tenant(event.getTenant())
-                .phone(event.getPhone())
-                .status(LeadStatus.NEW)
-                .campaign(event.getCampaign())
-                .build();
-        AutomationRule rule = AutomationRule.builder()
-                .tenant(event.getTenant())
-                .keyword("hello")
-                .priority(10)
-                .actionType(AutomationActionTypeEnum.SEND_MESSAGE)
-                .actionPayload("auto-reply")
-                .build();
+        @Test
+        void processLeadShouldSaveInboundAndNotExecuteAutomationWhenNoRuleMatches() {
+                LeadDTO event = sampleEvent();
+                Lead existing = Lead.builder()
+                                .tenant(event.getTenant())
+                                .phone(event.getPhone())
+                                .status(LeadStatus.NEW)
+                                .campaign(event.getCampaign())
+                                .build();
 
-        when(leadRepository.findByTenantAndPhone(event.getTenant(), event.getPhone()))
-                .thenReturn(Optional.of(existing));
-        when(ruleService.matchRule(event.getTenant(), event.getMessage()))
-                .thenReturn(Optional.of(rule));
+                when(leadRepository.findByTenantAndPhone(event.getTenant(), event.getPhone()))
+                                .thenReturn(Optional.of(existing));
+                when(idempotencyService.alreadyProcessed(event.getTenant(), event.getMessageId()))
+                                .thenReturn(false);
+                when(ruleService.matchRule(event.getTenant(), event.getMessage()))
+                                .thenReturn(Optional.empty());
 
-        leadService.processLead(event);
+                ProcessingResultEnum result = leadService.processLeadTransactionally(event);
 
-        InOrder inOrder = inOrder(leadMessageService, automationExecutor);
-        inOrder.verify(leadMessageService).saveInbound(
-                existing,
-                event.getTenant(),
-                event.getMessageId(),
-                event.getMessage());
-        inOrder.verify(automationExecutor).execute(
-                rule,
-                existing,
-                event.getPhone());
-    }
+                assertThat(result).isEqualTo(ProcessingResultEnum.PROCESSED);
+                verify(idempotencyService).alreadyProcessed(event.getTenant(), event.getMessageId());
+                verify(leadRepository).findByTenantAndPhone(event.getTenant(), event.getPhone());
+                verify(leadMessageService).saveInbound(
+                                existing,
+                                event.getTenant(),
+                                event.getMessageId(),
+                                event.getMessage());
+                verify(ruleService).matchRule(event.getTenant(), event.getMessage());
+                verifyNoInteractions(automationExecutor);
+                verify(idempotencyService).markProcessed(event.getTenant(), event.getMessageId());
+        }
 
-    private LeadDTO sampleEvent() {
-        LeadDTO event = new LeadDTO();
-        event.setVersion(1);
-        event.setMessageId("msg-001");
-        event.setPhone("+15550000001");
-        event.setMessage("hello");
-        event.setCampaign("cmp-a");
-        event.setTenant("tenant-a");
-        return event;
-    }
+        @Test
+        void processLeadShouldSaveInboundAndExecuteAutomationWhenRuleMatches() {
+                LeadDTO event = sampleEvent();
+                Lead existing = Lead.builder()
+                                .tenant(event.getTenant())
+                                .phone(event.getPhone())
+                                .status(LeadStatus.NEW)
+                                .campaign(event.getCampaign())
+                                .build();
+                AutomationRule rule = AutomationRule.builder()
+                                .tenant(event.getTenant())
+                                .keyword("hello")
+                                .priority(10)
+                                .actionType(AutomationActionTypeEnum.SEND_MESSAGE)
+                                .actionPayload("auto-reply")
+                                .build();
+
+                when(leadRepository.findByTenantAndPhone(event.getTenant(), event.getPhone()))
+                                .thenReturn(Optional.of(existing));
+                when(idempotencyService.alreadyProcessed(event.getTenant(), event.getMessageId()))
+                                .thenReturn(false);
+                when(ruleService.matchRule(event.getTenant(), event.getMessage()))
+                                .thenReturn(Optional.of(rule));
+
+                ProcessingResultEnum result = leadService.processLeadTransactionally(event);
+
+                assertThat(result).isEqualTo(ProcessingResultEnum.PROCESSED);
+                InOrder inOrder = inOrder(leadMessageService, automationExecutor, idempotencyService);
+                inOrder.verify(leadMessageService).saveInbound(
+                                existing,
+                                event.getTenant(),
+                                event.getMessageId(),
+                                event.getMessage());
+                inOrder.verify(automationExecutor).execute(
+                                rule,
+                                existing,
+                                event.getPhone());
+                inOrder.verify(idempotencyService).markProcessed(event.getTenant(), event.getMessageId());
+        }
+
+        private LeadDTO sampleEvent() {
+                LeadDTO event = new LeadDTO();
+                event.setVersion(1);
+                event.setMessageId("msg-001");
+                event.setPhone("+15550000001");
+                event.setMessage("hello");
+                event.setCampaign("cmp-a");
+                event.setTenant("tenant-a");
+                return event;
+        }
 }

@@ -13,7 +13,7 @@ public class WebhookController {
 
     private final LeadPublisherService publisherService;
 
-    @PostMapping("/webhook/whatsapp")
+    @PostMapping
     public ResponseEntity<Void> receiveMessage(
             @RequestHeader("X-API-Key") String apiKey,
             @RequestBody LeadEventDTO request) {

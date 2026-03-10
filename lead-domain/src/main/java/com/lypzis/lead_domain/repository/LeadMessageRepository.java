@@ -10,6 +10,5 @@ import com.lypzis.lead_domain.entity.LeadMessage;
 @Repository
 public interface LeadMessageRepository extends JpaRepository<LeadMessage, Long> {
 
-    // TODO for timeline display
     List<LeadMessage> findByLeadIdOrderByCreatedAtAsc(Long leadId);
 }

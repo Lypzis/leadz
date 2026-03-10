@@ -13,6 +13,7 @@ import org.springframework.messaging.handler.annotation.Header;
 
 import com.lypzis.lead_worker.config.RabbitConfig;
 import com.lypzis.lead_contracts.dto.LeadDTO;
+import com.lypzis.lead_contracts.dto.ProcessingResultEnum;
 import com.rabbitmq.client.Channel;
 
 @Service
@@ -23,27 +24,17 @@ public class LeadListener {
     private static final long MAX_RETRIES_BEFORE_DLQ = 1;
 
     private final LeadService leadService;
-    // private final WhatsAppSender sender;
     private final RabbitTemplate rabbitTemplate;
-    private final IdempotencyService idempotencyService;
 
     @RabbitListener(queues = RabbitConfig.MAIN_QUEUE)
     public void handleLead(LeadDTO event, Channel channel,
             @Header(name = AmqpHeaders.RETRY_COUNT, required = false) Long retryCount,
             @Header(AmqpHeaders.DELIVERY_TAG) long tag) throws IOException {
         try {
-
-            if (idempotencyService.alreadyProcessed(event.getTenant(), event.getMessageId())) {
-
-                log.info("Duplicate message ignored {}", event.getMessageId());
-                channel.basicAck(tag, false);
-                return;
-
+            ProcessingResultEnum processingResult = leadService.processLeadTransactionally(event);
+            if (processingResult == ProcessingResultEnum.DUPLICATE_IGNORED) {
+                log.info("Message {} already processed, acking duplicate delivery", event.getMessageId());
             }
-
-            leadService.processLead(event);
-
-            idempotencyService.markProcessed(event.getTenant(), event.getMessageId());
 
             channel.basicAck(tag, false);
 
@@ -51,6 +42,7 @@ public class LeadListener {
             if (retryCount != null && retryCount >= MAX_RETRIES_BEFORE_DLQ) {
                 log.error("Sending message {} to DLQ after {} retries", event.getMessageId(), retryCount, e);
                 rabbitTemplate.convertAndSend(RabbitConfig.EXCHANGE, RabbitConfig.DLQ_ROUTING_KEY, event);
+                channel.basicAck(tag, false);
                 return;
             }
 

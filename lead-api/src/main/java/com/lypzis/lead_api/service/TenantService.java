@@ -5,7 +5,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
 import com.lypzis.lead_domain.entity.Tenant;
-import com.lypzis.lead_api.repository.TenantRepository;
+import com.lypzis.lead_domain.repository.TenantRepository;
 
 import lombok.RequiredArgsConstructor;
 
