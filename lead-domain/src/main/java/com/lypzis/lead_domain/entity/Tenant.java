@@ -1,5 +1,7 @@
 package com.lypzis.lead_domain.entity;
 
+import com.lypzis.lead_contracts.dto.TenantPlanEnum;
+
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -17,8 +19,9 @@ public class Tenant extends BaseEntity {
     @Column(nullable = false, unique = true)
     private String apiKey;
 
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private String plan;
+    private TenantPlanEnum plan;
 
     @Column(nullable = false)
     private Integer requestsPerMinute;

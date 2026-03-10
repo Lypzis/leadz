@@ -1,15 +1,14 @@
 package com.lypzis.lead_api.service;
 
 import com.lypzis.lead_api.config.RabbitConfig;
+import com.lypzis.lead_api.exception.RateLimitExceededException;
 import com.lypzis.lead_domain.entity.Tenant;
 import com.lypzis.lead_contracts.dto.LeadDTO;
 import com.lypzis.lead_contracts.dto.LeadEventDTO;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
-import org.springframework.web.server.ResponseStatusException;
 
 @Service
 @RequiredArgsConstructor
@@ -24,9 +23,7 @@ public class LeadPublisherService {
         Tenant tenant = tenantService.resolveTenant(apiKey);
 
         if (!rateLimiter.allow(apiKey, tenant.getRequestsPerMinute())) {
-            throw new ResponseStatusException(
-                    HttpStatus.TOO_MANY_REQUESTS,
-                    "Rate limit exceeded");
+            throw new RateLimitExceededException("Rate limit exceeded");
         }
 
         LeadDTO lead = new LeadDTO();

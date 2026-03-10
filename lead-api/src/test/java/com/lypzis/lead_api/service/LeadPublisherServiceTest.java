@@ -15,13 +15,14 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
-import org.springframework.http.HttpStatus;
-import org.springframework.web.server.ResponseStatusException;
 
 import com.lypzis.lead_api.config.RabbitConfig;
+import com.lypzis.lead_api.exception.RateLimitExceededException;
+import com.lypzis.lead_api.exception.UnauthorizedException;
 import com.lypzis.lead_domain.entity.Tenant;
 import com.lypzis.lead_contracts.dto.LeadDTO;
 import com.lypzis.lead_contracts.dto.LeadEventDTO;
+import com.lypzis.lead_contracts.dto.TenantPlanEnum;
 
 @ExtendWith(MockitoExtension.class)
 class LeadPublisherServiceTest {
@@ -47,25 +48,24 @@ class LeadPublisherServiceTest {
         when(tenantService.resolveTenant("tenant-key")).thenReturn(tenant);
         when(rateLimiter.allow("tenant-key", 60)).thenReturn(false);
 
-        ResponseStatusException exception = assertThrows(
-                ResponseStatusException.class,
+        RateLimitExceededException exception = assertThrows(
+                RateLimitExceededException.class,
                 () -> service.publish("tenant-key", sampleEvent()));
 
-        assertThat(exception.getStatusCode()).isEqualTo(HttpStatus.TOO_MANY_REQUESTS);
-        assertThat(exception.getReason()).isEqualTo("Rate limit exceeded");
+        assertThat(exception.getMessage()).isEqualTo("Rate limit exceeded");
         verifyNoInteractions(rabbitTemplate);
     }
 
     @Test
     void shouldThrowUnauthorizedWhenTenantCannotBeResolved() {
         when(tenantService.resolveTenant("tenant-key"))
-                .thenThrow(new ResponseStatusException(HttpStatus.UNAUTHORIZED));
+                .thenThrow(new UnauthorizedException("Invalid or inactive API key"));
 
-        ResponseStatusException exception = assertThrows(
-                ResponseStatusException.class,
+        UnauthorizedException exception = assertThrows(
+                UnauthorizedException.class,
                 () -> service.publish("tenant-key", sampleEvent()));
 
-        assertThat(exception.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        assertThat(exception.getMessage()).isEqualTo("Invalid or inactive API key");
         verifyNoInteractions(rateLimiter, rabbitTemplate);
     }
 
@@ -109,7 +109,7 @@ class LeadPublisherServiceTest {
         Tenant tenant = new Tenant();
         tenant.setName("Tenant A");
         tenant.setApiKey(apiKey);
-        tenant.setPlan("pro");
+        tenant.setPlan(TenantPlanEnum.PRO);
         tenant.setRequestsPerMinute(requestsPerMinute);
         tenant.setActive(true);
         return tenant;
