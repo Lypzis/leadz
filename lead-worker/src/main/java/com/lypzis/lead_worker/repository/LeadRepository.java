@@ -8,5 +8,5 @@ import com.lypzis.lead_worker.entity.Lead;
 
 public interface LeadRepository extends JpaRepository<Lead, Long> {
 
-    Optional<Lead> findByMessageId(String messageId);
+    Optional<Lead> findByTenantAndMessageId(String tenant, String messageId);
 }

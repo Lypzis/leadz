@@ -1,7 +1,7 @@
 package com.lypzis.lead_api.service;
 
 import com.lypzis.lead_api.config.RabbitConfig;
-import com.lypzis.lead_api.utils.TenantRegistry;
+import com.lypzis.lead_api.entity.Tenant;
 import com.lypzis.lead_contracts.dto.LeadDTO;
 import com.lypzis.lead_contracts.dto.LeadEventDTO;
 
@@ -17,21 +17,21 @@ public class LeadPublisherService {
 
     private final RabbitTemplate rabbitTemplate;
     private final TenantRateLimiterService rateLimiter;
-    private final TenantRegistry tenantRegistry;
+    private final TenantService tenantService;
 
     public void publish(String apiKey, LeadEventDTO event) {
 
-        if (!rateLimiter.allow(apiKey, 60)) {
-            throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS, "Rate limit exceeded");
-        }
+        Tenant tenant = tenantService.resolveTenant(apiKey);
 
-        if (!tenantRegistry.isValid(apiKey)) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED);
+        if (!rateLimiter.allow(apiKey, tenant.getRequestsPerMinute())) {
+            throw new ResponseStatusException(
+                    HttpStatus.TOO_MANY_REQUESTS,
+                    "Rate limit exceeded");
         }
 
         LeadDTO lead = new LeadDTO();
 
-        lead.setTenant(apiKey);
+        lead.setTenant(tenant.getApiKey());
         lead.setMessageId(event.getMessageId());
         lead.setPhone(event.getPhone());
         lead.setMessage(event.getMessage());

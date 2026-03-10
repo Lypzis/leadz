@@ -13,9 +13,7 @@ import org.springframework.messaging.handler.annotation.Header;
 
 import com.lypzis.lead_worker.config.RabbitConfig;
 import com.lypzis.lead_worker.entity.Lead;
-import com.lypzis.lead_worker.entity.Tenant;
 import com.lypzis.lead_worker.repository.LeadRepository;
-import com.lypzis.lead_worker.repository.TenantRepository;
 import com.lypzis.lead_contracts.dto.LeadDTO;
 import com.rabbitmq.client.Channel;
 
@@ -27,10 +25,10 @@ public class LeadListener {
     private static final long MAX_RETRIES_BEFORE_DLQ = 1;
 
     private final LeadRepository leadRepository;
-    private final TenantRepository tenantRepository;
     private final AutomationRuleService ruleService;
     private final WhatsAppSender sender;
     private final RabbitTemplate rabbitTemplate;
+    private final IdempotencyService idempotencyService;
 
     @RabbitListener(queues = RabbitConfig.MAIN_QUEUE)
     public void handleLead(LeadDTO event, Channel channel,
@@ -38,7 +36,17 @@ public class LeadListener {
             @Header(AmqpHeaders.DELIVERY_TAG) long tag) throws IOException {
         try {
 
+            if (idempotencyService.alreadyProcessed(event.getTenant(), event.getMessageId())) {
+
+                log.info("Duplicate message ignored {}", event.getMessageId());
+                channel.basicAck(tag, false);
+                return;
+
+            }
+
             processLead(event);
+
+            idempotencyService.markProcessed(event.getTenant(), event.getMessageId());
 
             channel.basicAck(tag, false);
 
@@ -51,8 +59,7 @@ public class LeadListener {
 
             log.error("Failed processing lead {}", event.getMessageId(), e);
 
-            throw e; // triggers retry mechanism
-
+            channel.basicNack(tag, false, false);
         }
     }
 
@@ -62,13 +69,9 @@ public class LeadListener {
             return;
         }
 
-        Tenant tenant = tenantRepository
-                .findByApiKey(event.getTenant())
-                .orElseThrow(() -> new RuntimeException("Tenant not found"));
-
         log.info("Received lead event {}", event.getMessageId());
 
-        if (leadRepository.findByMessageId(event.getMessageId()).isPresent()) {
+        if (leadRepository.findByTenantAndMessageId(event.getTenant(), event.getMessageId()).isPresent()) {
             log.info("Duplicate message ignored: {}", event.getMessageId());
             return;
         }
@@ -78,16 +81,15 @@ public class LeadListener {
                 .phone(event.getPhone())
                 .message(event.getMessage())
                 .campaign(event.getCampaign())
-                .tenant(tenant)
+                .tenant(event.getTenant())
                 .build();
 
         leadRepository.save(lead);
 
         log.info("Lead stored successfully {}", lead.getId());
 
-        ruleService.matchRule(event.getMessage())
-                .ifPresent(rule -> sender.sendMessage(
-                        event.getPhone(),
-                        rule.getResponseMessage()));
+        ruleService.matchRule(
+                event.getTenant(),
+                event.getMessage());
     }
 }

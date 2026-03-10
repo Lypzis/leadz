@@ -2,7 +2,7 @@ package com.lypzis.lead_api.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -19,7 +19,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 
 import com.lypzis.lead_api.config.RabbitConfig;
-import com.lypzis.lead_api.utils.TenantRegistry;
+import com.lypzis.lead_api.entity.Tenant;
 import com.lypzis.lead_contracts.dto.LeadDTO;
 import com.lypzis.lead_contracts.dto.LeadEventDTO;
 
@@ -33,7 +33,7 @@ class LeadPublisherServiceTest {
     private TenantRateLimiterService rateLimiter;
 
     @Mock
-    private TenantRegistry tenantRegistry;
+    private TenantService tenantService;
 
     @InjectMocks
     private LeadPublisherService service;
@@ -43,6 +43,8 @@ class LeadPublisherServiceTest {
 
     @Test
     void shouldThrowTooManyRequestsWhenRateLimitExceeded() {
+        Tenant tenant = activeTenant("tenant-key", 60);
+        when(tenantService.resolveTenant("tenant-key")).thenReturn(tenant);
         when(rateLimiter.allow("tenant-key", 60)).thenReturn(false);
 
         ResponseStatusException exception = assertThrows(
@@ -51,35 +53,37 @@ class LeadPublisherServiceTest {
 
         assertThat(exception.getStatusCode()).isEqualTo(HttpStatus.TOO_MANY_REQUESTS);
         assertThat(exception.getReason()).isEqualTo("Rate limit exceeded");
-        verifyNoInteractions(tenantRegistry, rabbitTemplate);
+        verifyNoInteractions(rabbitTemplate);
     }
 
     @Test
-    void shouldThrowUnauthorizedWhenTenantIsInvalid() {
-        when(rateLimiter.allow("tenant-key", 60)).thenReturn(true);
-        when(tenantRegistry.isValid("tenant-key")).thenReturn(false);
+    void shouldThrowUnauthorizedWhenTenantCannotBeResolved() {
+        when(tenantService.resolveTenant("tenant-key"))
+                .thenThrow(new ResponseStatusException(HttpStatus.UNAUTHORIZED));
 
         ResponseStatusException exception = assertThrows(
                 ResponseStatusException.class,
                 () -> service.publish("tenant-key", sampleEvent()));
 
         assertThat(exception.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
-        verifyNoInteractions(rabbitTemplate);
+        verifyNoInteractions(rateLimiter, rabbitTemplate);
     }
 
     @Test
     void shouldPublishMappedLeadWhenRateLimitAndTenantAreValid() {
+        Tenant tenant = activeTenant("tenant-key", 75);
         LeadEventDTO event = sampleEvent();
         event.setApiKey("spoofed-body-key");
 
-        when(rateLimiter.allow("tenant-key", 60)).thenReturn(true);
-        when(tenantRegistry.isValid("tenant-key")).thenReturn(true);
+        when(tenantService.resolveTenant("tenant-key")).thenReturn(tenant);
+        when(rateLimiter.allow("tenant-key", 75)).thenReturn(true);
 
         service.publish("tenant-key", event);
 
+        verify(rateLimiter).allow("tenant-key", 75);
         verify(rabbitTemplate).convertAndSend(
-                anyString(),
-                anyString(),
+                eq(RabbitConfig.EXCHANGE),
+                eq(RabbitConfig.ROUTING_KEY),
                 leadCaptor.capture());
 
         LeadDTO lead = leadCaptor.getValue();
@@ -90,11 +94,6 @@ class LeadPublisherServiceTest {
         assertThat(lead.getMessage()).isEqualTo(event.getMessage());
         assertThat(lead.getCampaign()).isEqualTo(event.getCampaign());
         assertThat(lead.getVersion()).isEqualTo(1);
-
-        verify(rabbitTemplate).convertAndSend(
-                RabbitConfig.EXCHANGE,
-                RabbitConfig.ROUTING_KEY,
-                lead);
     }
 
     private LeadEventDTO sampleEvent() {
@@ -104,5 +103,15 @@ class LeadPublisherServiceTest {
         event.setMessage("hello");
         event.setCampaign("campaign-a");
         return event;
+    }
+
+    private Tenant activeTenant(String apiKey, int requestsPerMinute) {
+        Tenant tenant = new Tenant();
+        tenant.setName("Tenant A");
+        tenant.setApiKey(apiKey);
+        tenant.setPlan("pro");
+        tenant.setRequestsPerMinute(requestsPerMinute);
+        tenant.setActive(true);
+        return tenant;
     }
 }

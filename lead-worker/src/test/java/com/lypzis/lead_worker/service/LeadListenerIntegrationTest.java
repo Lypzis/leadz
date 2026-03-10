@@ -1,15 +1,15 @@
 package com.lypzis.lead_worker.service;
 
-import com.lypzis.lead_worker.config.RabbitConfig;
-import com.lypzis.lead_worker.entity.Tenant;
-import com.lypzis.lead_worker.repository.LeadRepository;
-import com.lypzis.lead_worker.repository.TenantRepository;
-import com.lypzis.lead_contracts.dto.LeadEventDTO;
-import org.springframework.amqp.core.AmqpAdmin;
-import org.springframework.amqp.rabbit.core.RabbitAdmin;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.awaitility.Awaitility.await;
+
+import java.time.Duration;
+import java.util.UUID;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.springframework.amqp.core.AmqpAdmin;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -20,11 +20,10 @@ import org.testcontainers.containers.RabbitMQContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
-import java.time.Duration;
-import java.util.UUID;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.awaitility.Awaitility.await;
+import com.lypzis.lead_contracts.dto.LeadDTO;
+import com.lypzis.lead_worker.config.RabbitConfig;
+import com.lypzis.lead_worker.repository.LeadRepository;
+import com.lypzis.lead_worker.repository.ProcessedMessageRepository;
 
 @Testcontainers
 @SpringBootTest
@@ -63,77 +62,102 @@ class LeadListenerIntegrationTest {
     private LeadRepository leadRepository;
 
     @Autowired
-    private TenantRepository tenantRepository;
+    private ProcessedMessageRepository processedMessageRepository;
 
     @Autowired
     private AmqpAdmin amqpAdmin;
 
     @BeforeEach
-    void cleanDatabase() {
+    void cleanState() {
         amqpAdmin.purgeQueue(RabbitConfig.MAIN_QUEUE, true);
         amqpAdmin.purgeQueue(RabbitConfig.RETRY_QUEUE, true);
         amqpAdmin.purgeQueue(RabbitConfig.DLQ, true);
         leadRepository.deleteAll();
-        tenantRepository.deleteAll();
+        processedMessageRepository.deleteAll();
     }
 
     @Test
     void shouldConsumeRabbitMessageAndPersistLead() {
-        Tenant tenant = Tenant.builder()
-                .name("Integration Tenant")
-                .apiKey("it-tenant-key")
-                .build();
-        Tenant savedTenant = tenantRepository.save(tenant);
-
-        LeadEventDTO event = new LeadEventDTO();
+        LeadDTO event = new LeadDTO();
         event.setMessageId("msg-" + UUID.randomUUID());
         event.setPhone("+15550001111");
         event.setMessage("integration payload");
         event.setCampaign("integration-campaign");
-        event.setApiKey("it-tenant-key");
+        event.setTenant("tenant-a");
 
         rabbitTemplate.convertAndSend(RabbitConfig.EXCHANGE, RabbitConfig.ROUTING_KEY, event);
 
         await()
                 .atMost(Duration.ofSeconds(10))
                 .untilAsserted(() -> {
-                    var savedLead = leadRepository.findByMessageId(event.getMessageId());
+                    var savedLead = leadRepository.findByTenantAndMessageId(event.getTenant(), event.getMessageId());
                     assertThat(savedLead).isPresent();
                     assertThat(savedLead.orElseThrow().getPhone()).isEqualTo(event.getPhone());
                     assertThat(savedLead.orElseThrow().getMessage()).isEqualTo(event.getMessage());
                     assertThat(savedLead.orElseThrow().getCampaign()).isEqualTo(event.getCampaign());
-                    assertThat(savedLead.orElseThrow().getTenant()).isNotNull();
-                    Long leadTenantId = savedLead.orElseThrow().getTenant().getId();
-                    assertThat(leadTenantId).isEqualTo(savedTenant.getId());
-                    assertThat(tenantRepository.findById(leadTenantId))
-                            .isPresent()
-                            .get()
-                            .extracting(Tenant::getApiKey)
-                            .isEqualTo("it-tenant-key");
+                    assertThat(savedLead.orElseThrow().getTenant()).isEqualTo(event.getTenant());
+                    assertThat(processedMessageRepository.existsByTenantAndMessageId(
+                            event.getTenant(),
+                            event.getMessageId())).isTrue();
                 });
     }
 
     @Test
-    void shouldSendFailedMessageToDlqWhenTenantIsMissing() {
-        LeadEventDTO event = new LeadEventDTO();
-        event.setMessageId("msg-dlq-" + UUID.randomUUID());
-        event.setPhone("+15550002222");
-        event.setMessage("this should fail");
+    void shouldIgnoreDuplicateMessageUsingIdempotency() {
+        LeadDTO event = new LeadDTO();
+        event.setMessageId("msg-dup-" + UUID.randomUUID());
+        event.setPhone("+15550009999");
+        event.setMessage("integration payload");
         event.setCampaign("integration-campaign");
-        event.setApiKey("missing-tenant-api-key");
+        event.setTenant("tenant-dup");
 
         rabbitTemplate.convertAndSend(RabbitConfig.EXCHANGE, RabbitConfig.ROUTING_KEY, event);
 
         await()
-                .atMost(Duration.ofSeconds(20))
-                .untilAsserted(() -> {
-                    var dlqProps = amqpAdmin.getQueueProperties(RabbitConfig.DLQ);
-                    assertThat(dlqProps).isNotNull();
-                    Integer messageCount = (Integer) dlqProps.get(RabbitAdmin.QUEUE_MESSAGE_COUNT);
-                    assertThat(messageCount).isNotNull();
-                    assertThat(messageCount).isGreaterThan(0);
-                });
+                .atMost(Duration.ofSeconds(10))
+                .untilAsserted(() -> assertThat(
+                        processedMessageRepository.existsByTenantAndMessageId(
+                                event.getTenant(),
+                                event.getMessageId())).isTrue());
 
-        assertThat(leadRepository.findByMessageId(event.getMessageId())).isEmpty();
+        rabbitTemplate.convertAndSend(RabbitConfig.EXCHANGE, RabbitConfig.ROUTING_KEY, event);
+
+        await()
+                .atMost(Duration.ofSeconds(10))
+                .untilAsserted(() -> {
+                    assertThat(leadRepository.count()).isEqualTo(1L);
+                    assertThat(processedMessageRepository.count()).isEqualTo(1L);
+                });
+    }
+
+    @Test
+    void shouldAllowSameMessageIdForDifferentTenants() {
+        String sharedMessageId = "msg-shared-" + UUID.randomUUID();
+
+        LeadDTO tenantAEvent = new LeadDTO();
+        tenantAEvent.setMessageId(sharedMessageId);
+        tenantAEvent.setPhone("+15550001001");
+        tenantAEvent.setMessage("payload A");
+        tenantAEvent.setCampaign("campaign-a");
+        tenantAEvent.setTenant("tenant-a");
+
+        LeadDTO tenantBEvent = new LeadDTO();
+        tenantBEvent.setMessageId(sharedMessageId);
+        tenantBEvent.setPhone("+15550001002");
+        tenantBEvent.setMessage("payload B");
+        tenantBEvent.setCampaign("campaign-b");
+        tenantBEvent.setTenant("tenant-b");
+
+        rabbitTemplate.convertAndSend(RabbitConfig.EXCHANGE, RabbitConfig.ROUTING_KEY, tenantAEvent);
+        rabbitTemplate.convertAndSend(RabbitConfig.EXCHANGE, RabbitConfig.ROUTING_KEY, tenantBEvent);
+
+        await()
+                .atMost(Duration.ofSeconds(10))
+                .untilAsserted(() -> {
+                    assertThat(leadRepository.findByTenantAndMessageId("tenant-a", sharedMessageId)).isPresent();
+                    assertThat(leadRepository.findByTenantAndMessageId("tenant-b", sharedMessageId)).isPresent();
+                    assertThat(processedMessageRepository.existsByTenantAndMessageId("tenant-a", sharedMessageId)).isTrue();
+                    assertThat(processedMessageRepository.existsByTenantAndMessageId("tenant-b", sharedMessageId)).isTrue();
+                });
     }
 }

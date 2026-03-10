@@ -13,16 +13,22 @@ import lombok.RequiredArgsConstructor;
 @Service
 @RequiredArgsConstructor
 public class AutomationRuleService {
+
     private final AutomationRuleRepository ruleRepository;
 
-    public Optional<AutomationRule> matchRule(String message) {
+    public Optional<AutomationRule> matchRule(String tenant, String message) {
 
-        List<AutomationRule> rules = ruleRepository.findAll();
+        // TODO add findByTenantAndKeywordIn, to avoid all rules every message
+        List<AutomationRule> rules = ruleRepository.findByTenant(tenant);
+
+        String lowerMessage = message.toLowerCase();
 
         for (AutomationRule rule : rules) {
-            if (message.toLowerCase().contains(rule.getKeyword().toLowerCase())) {
+
+            if (lowerMessage.contains(rule.getKeyword().toLowerCase())) {
                 return Optional.of(rule);
             }
+
         }
 
         return Optional.empty();

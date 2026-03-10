@@ -4,6 +4,10 @@ import jakarta.persistence.*;
 import lombok.*;
 
 @Entity
+@Table(name = "automation_rules", indexes = {
+        @Index(name = "idx_rules_tenant", columnList = "tenant"),
+        @Index(name = "idx_rules_keyword", columnList = "keyword")
+})
 @Data
 @EqualsAndHashCode(callSuper = true)
 @NoArgsConstructor
@@ -11,13 +15,10 @@ import lombok.*;
 @Builder
 public class AutomationRule extends BaseEntity {
 
+    private String tenant;
+
     private String keyword;
 
     @Column(length = 1000)
     private String responseMessage;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "tenant_id")
-    private Tenant tenant;
-
 }

@@ -5,7 +5,7 @@ import lombok.*;
 
 @Entity
 @Table(name = "leads", uniqueConstraints = {
-        @UniqueConstraint(name = "uk_message_id", columnNames = "messageId")
+        @UniqueConstraint(name = "uk_message_id", columnNames = { "tenant", "message_id" })
 })
 @Data
 @EqualsAndHashCode(callSuper = true)
@@ -14,6 +14,7 @@ import lombok.*;
 @Builder
 public class Lead extends BaseEntity {
 
+    @Column(name = "message_id")
     private String messageId;
 
     private String phone;
@@ -23,8 +24,6 @@ public class Lead extends BaseEntity {
 
     private String campaign;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "tenant_id")
-    private Tenant tenant;
+    private String tenant;
 
 }
