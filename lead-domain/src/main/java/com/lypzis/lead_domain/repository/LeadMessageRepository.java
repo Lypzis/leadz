@@ -1,11 +1,11 @@
-package com.lypzis.lead_worker.repository;
+package com.lypzis.lead_domain.repository;
 
 import java.util.List;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
-import com.lypzis.lead_worker.entity.LeadMessage;
+import com.lypzis.lead_domain.entity.LeadMessage;
 
 @Repository
 public interface LeadMessageRepository extends JpaRepository<LeadMessage, Long> {

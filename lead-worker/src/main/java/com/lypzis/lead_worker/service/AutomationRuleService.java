@@ -5,8 +5,8 @@ import java.util.Optional;
 
 import org.springframework.stereotype.Service;
 
-import com.lypzis.lead_worker.entity.AutomationRule;
-import com.lypzis.lead_worker.repository.AutomationRuleRepository;
+import com.lypzis.lead_domain.entity.AutomationRule;
+import com.lypzis.lead_domain.repository.AutomationRuleRepository;
 
 import lombok.RequiredArgsConstructor;
 

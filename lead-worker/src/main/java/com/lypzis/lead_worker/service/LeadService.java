@@ -3,8 +3,9 @@ package com.lypzis.lead_worker.service;
 import org.springframework.stereotype.Service;
 
 import com.lypzis.lead_contracts.dto.LeadDTO;
-import com.lypzis.lead_worker.entity.Lead;
-import com.lypzis.lead_worker.repository.LeadRepository;
+import com.lypzis.lead_domain.entity.Lead;
+import com.lypzis.lead_domain.entity.LeadStatus;
+import com.lypzis.lead_domain.repository.LeadRepository;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -25,9 +26,14 @@ public class LeadService {
                         Lead.builder()
                                 .tenant(tenant)
                                 .phone(phone)
-                                .status("NEW")
+                                .status(LeadStatus.NEW)
                                 .campaign(campaign)
                                 .build()));
+    }
+
+    public void updateStatus(Lead lead, LeadStatus status) {
+        lead.setStatus(status);
+        leadRepository.save(lead);
     }
 
     public void processLead(LeadDTO event) {

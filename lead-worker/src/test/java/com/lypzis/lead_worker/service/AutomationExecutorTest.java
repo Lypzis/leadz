@@ -14,9 +14,10 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.lypzis.lead_contracts.dto.AutomationActionTypeEnum;
-import com.lypzis.lead_worker.entity.AutomationRule;
-import com.lypzis.lead_worker.entity.Lead;
-import com.lypzis.lead_worker.repository.LeadRepository;
+import com.lypzis.lead_domain.entity.AutomationRule;
+import com.lypzis.lead_domain.entity.Lead;
+import com.lypzis.lead_domain.entity.LeadStatus;
+import com.lypzis.lead_domain.repository.LeadRepository;
 
 @ExtendWith(MockitoExtension.class)
 class AutomationExecutorTest {
@@ -37,12 +38,14 @@ class AutomationExecutorTest {
     void executeShouldSendMessageAndSaveOutboundWhenActionIsSendMessage() {
         Lead lead = sampleLead();
         AutomationRule rule = rule(AutomationActionTypeEnum.SEND_MESSAGE, "hello back");
+        when(leadRepository.save(lead)).thenReturn(lead);
 
         automationExecutor.execute(rule, lead, "+15550001111");
 
         verify(sender).sendMessage("+15550001111", "hello back");
         verify(leadMessageService).saveOutbound(lead, "tenant-a", "hello back");
-        verify(leadRepository, never()).save(any(Lead.class));
+        assertThat(lead.getStatus()).isEqualTo(LeadStatus.WAITING_CUSTOMER);
+        verify(leadRepository).save(lead);
     }
 
     @Test
@@ -53,7 +56,7 @@ class AutomationExecutorTest {
 
         automationExecutor.execute(rule, lead, "+15550001111");
 
-        assertThat(lead.getStatus()).isEqualTo("QUALIFIED");
+        assertThat(lead.getStatus()).isEqualTo(LeadStatus.QUALIFIED);
         verify(leadRepository).save(lead);
         verifyNoInteractions(sender, leadMessageService);
     }
@@ -95,7 +98,7 @@ class AutomationExecutorTest {
 
         automationExecutor.execute(rule, lead, "+15550001111");
 
-        assertThat(lead.getStatus()).isEqualTo("NEW");
+        assertThat(lead.getStatus()).isEqualTo(LeadStatus.NEW);
         verifyNoInteractions(sender, leadMessageService, leadRepository);
     }
 
@@ -103,7 +106,7 @@ class AutomationExecutorTest {
         return Lead.builder()
                 .tenant("tenant-a")
                 .phone("+15550001111")
-                .status("NEW")
+                .status(LeadStatus.NEW)
                 .campaign("cmp-a")
                 .build();
     }

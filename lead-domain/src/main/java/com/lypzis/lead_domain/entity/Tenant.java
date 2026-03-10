@@ -1,4 +1,4 @@
-package com.lypzis.lead_api.entity;
+package com.lypzis.lead_domain.entity;
 
 import jakarta.persistence.*;
 import lombok.*;

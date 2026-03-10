@@ -14,8 +14,8 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.lypzis.lead_contracts.dto.AutomationActionTypeEnum;
-import com.lypzis.lead_worker.entity.AutomationRule;
-import com.lypzis.lead_worker.repository.AutomationRuleRepository;
+import com.lypzis.lead_domain.entity.AutomationRule;
+import com.lypzis.lead_domain.repository.AutomationRuleRepository;
 
 @ExtendWith(MockitoExtension.class)
 class AutomationRuleServiceTest {

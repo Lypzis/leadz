@@ -64,6 +64,11 @@
 		</dependency>
 		<dependency>
 			<groupId>com.lypzis</groupId>
+			<artifactId>lead-domain</artifactId>
+			<version>0.0.1-SNAPSHOT</version>
+		</dependency>
+		<dependency>
+			<groupId>com.lypzis</groupId>
 			<artifactId>lead-contracts</artifactId>
 			<version>0.0.1-SNAPSHOT</version>
 		</dependency>
@@ -81,6 +86,11 @@
 		<dependency>
 			<groupId>org.springframework.amqp</groupId>
 			<artifactId>spring-rabbit-test</artifactId>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>com.h2database</groupId>
+			<artifactId>h2</artifactId>
 			<scope>test</scope>
 		</dependency>
 	</dependencies>

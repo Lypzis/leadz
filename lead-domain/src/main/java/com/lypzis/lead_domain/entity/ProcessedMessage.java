@@ -1,4 +1,4 @@
-package com.lypzis.lead_worker.entity;
+package com.lypzis.lead_domain.entity;
 
 import java.time.Instant;
 

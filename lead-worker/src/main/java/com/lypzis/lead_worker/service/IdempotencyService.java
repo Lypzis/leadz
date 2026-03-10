@@ -2,8 +2,8 @@ package com.lypzis.lead_worker.service;
 
 import org.springframework.stereotype.Service;
 
-import com.lypzis.lead_worker.entity.ProcessedMessage;
-import com.lypzis.lead_worker.repository.ProcessedMessageRepository;
+import com.lypzis.lead_domain.entity.ProcessedMessage;
+import com.lypzis.lead_domain.repository.ProcessedMessageRepository;
 
 import lombok.RequiredArgsConstructor;
 

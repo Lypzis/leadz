@@ -2,9 +2,10 @@ package com.lypzis.lead_worker.service;
 
 import org.springframework.stereotype.Service;
 
-import com.lypzis.lead_worker.entity.AutomationRule;
-import com.lypzis.lead_worker.entity.Lead;
-import com.lypzis.lead_worker.repository.LeadRepository;
+import com.lypzis.lead_domain.entity.AutomationRule;
+import com.lypzis.lead_domain.entity.Lead;
+import com.lypzis.lead_domain.entity.LeadStatus;
+import com.lypzis.lead_domain.repository.LeadRepository;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -17,6 +18,14 @@ public class AutomationExecutor {
     private final MessageSender sender;
     private final LeadMessageService leadMessageService;
     private final LeadRepository leadRepository;
+
+    private LeadStatus parseStatus(String value) {
+        try {
+            return LeadStatus.valueOf(value);
+        } catch (IllegalArgumentException e) {
+            throw new IllegalStateException("Invalid lead status: " + value, e);
+        }
+    }
 
     public void execute(AutomationRule rule, Lead lead, String phone) {
 
@@ -35,7 +44,8 @@ public class AutomationExecutor {
             case SEND_MESSAGE -> {
 
                 if (isBlank(rule.getActionPayload()) || isBlank(phone)) {
-                    log.warn("Skipping SEND_MESSAGE action due to blank payload or phone for tenant {}", rule.getTenant());
+                    log.warn("Skipping SEND_MESSAGE action due to blank payload or phone for tenant {}",
+                            rule.getTenant());
                     return;
                 }
 
@@ -45,6 +55,9 @@ public class AutomationExecutor {
                         lead,
                         lead.getTenant(),
                         rule.getActionPayload());
+
+                lead.setStatus(LeadStatus.WAITING_CUSTOMER);
+                leadRepository.save(lead);
             }
 
             case CHANGE_STATUS -> {
@@ -54,7 +67,7 @@ public class AutomationExecutor {
                     return;
                 }
 
-                lead.setStatus(rule.getActionPayload());
+                lead.setStatus(parseStatus(rule.getActionPayload()));
                 leadRepository.save(lead);
             }
 

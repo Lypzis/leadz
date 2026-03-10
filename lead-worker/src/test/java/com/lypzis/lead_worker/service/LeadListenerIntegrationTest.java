@@ -23,9 +23,10 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import com.lypzis.lead_contracts.dto.LeadDTO;
 import com.lypzis.lead_contracts.dto.MessageDirectionEnum;
 import com.lypzis.lead_worker.config.RabbitConfig;
-import com.lypzis.lead_worker.repository.LeadMessageRepository;
-import com.lypzis.lead_worker.repository.LeadRepository;
-import com.lypzis.lead_worker.repository.ProcessedMessageRepository;
+import com.lypzis.lead_domain.entity.LeadStatus;
+import com.lypzis.lead_domain.repository.LeadMessageRepository;
+import com.lypzis.lead_domain.repository.LeadRepository;
+import com.lypzis.lead_domain.repository.ProcessedMessageRepository;
 
 @Testcontainers
 @SpringBootTest
@@ -100,7 +101,7 @@ class LeadListenerIntegrationTest {
                     assertThat(savedLead).isPresent();
                     assertThat(savedLead.orElseThrow().getPhone()).isEqualTo(event.getPhone());
                     assertThat(savedLead.orElseThrow().getCampaign()).isEqualTo(event.getCampaign());
-                    assertThat(savedLead.orElseThrow().getStatus()).isEqualTo("NEW");
+                    assertThat(savedLead.orElseThrow().getStatus()).isEqualTo(LeadStatus.NEW);
                     assertThat(savedLead.orElseThrow().getTenant()).isEqualTo(event.getTenant());
                     var messages = leadMessageRepository.findByLeadIdOrderByCreatedAtAsc(
                             savedLead.orElseThrow().getId());

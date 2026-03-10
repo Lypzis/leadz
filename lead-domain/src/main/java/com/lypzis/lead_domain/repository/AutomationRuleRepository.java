@@ -1,10 +1,10 @@
-package com.lypzis.lead_worker.repository;
+package com.lypzis.lead_domain.repository;
 
 import java.util.List;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 
-import com.lypzis.lead_worker.entity.AutomationRule;
+import com.lypzis.lead_domain.entity.AutomationRule;
 
 public interface AutomationRuleRepository extends JpaRepository<AutomationRule, Long> {
 

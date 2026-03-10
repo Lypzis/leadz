@@ -1,7 +1,7 @@
 package com.lypzis.lead_api.service;
 
 import com.lypzis.lead_api.config.RabbitConfig;
-import com.lypzis.lead_api.entity.Tenant;
+import com.lypzis.lead_domain.entity.Tenant;
 import com.lypzis.lead_contracts.dto.LeadDTO;
 import com.lypzis.lead_contracts.dto.LeadEventDTO;
 

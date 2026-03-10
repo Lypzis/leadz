@@ -5,9 +5,9 @@ import java.util.UUID;
 import org.springframework.stereotype.Service;
 
 import com.lypzis.lead_contracts.dto.MessageDirectionEnum;
-import com.lypzis.lead_worker.entity.Lead;
-import com.lypzis.lead_worker.entity.LeadMessage;
-import com.lypzis.lead_worker.repository.LeadMessageRepository;
+import com.lypzis.lead_domain.entity.Lead;
+import com.lypzis.lead_domain.entity.LeadMessage;
+import com.lypzis.lead_domain.repository.LeadMessageRepository;
 
 import lombok.RequiredArgsConstructor;
 

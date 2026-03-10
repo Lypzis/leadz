@@ -12,6 +12,7 @@
 
     <modules>
         <module>lead-contracts</module>
+        <module>lead-domain</module>
         <module>lead-api</module>
         <module>lead-worker</module>
     </modules>

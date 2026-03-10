@@ -21,9 +21,10 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.lypzis.lead_contracts.dto.AutomationActionTypeEnum;
 import com.lypzis.lead_contracts.dto.LeadDTO;
-import com.lypzis.lead_worker.entity.AutomationRule;
-import com.lypzis.lead_worker.entity.Lead;
-import com.lypzis.lead_worker.repository.LeadRepository;
+import com.lypzis.lead_domain.entity.AutomationRule;
+import com.lypzis.lead_domain.entity.Lead;
+import com.lypzis.lead_domain.entity.LeadStatus;
+import com.lypzis.lead_domain.repository.LeadRepository;
 
 @ExtendWith(MockitoExtension.class)
 class LeadServiceTest {
@@ -51,7 +52,7 @@ class LeadServiceTest {
         Lead existing = Lead.builder()
                 .tenant("tenant-a")
                 .phone("+15550000001")
-                .status("QUALIFIED")
+                .status(LeadStatus.QUALIFIED)
                 .campaign("cmp-a")
                 .build();
 
@@ -72,7 +73,7 @@ class LeadServiceTest {
         Lead persisted = Lead.builder()
                 .tenant("tenant-a")
                 .phone("+15550000002")
-                .status("NEW")
+                .status(LeadStatus.NEW)
                 .campaign("cmp-b")
                 .build();
         persisted.setId(10L);
@@ -85,7 +86,7 @@ class LeadServiceTest {
         Lead saved = leadCaptor.getValue();
         assertThat(saved.getTenant()).isEqualTo("tenant-a");
         assertThat(saved.getPhone()).isEqualTo("+15550000002");
-        assertThat(saved.getStatus()).isEqualTo("NEW");
+        assertThat(saved.getStatus()).isEqualTo(LeadStatus.NEW);
         assertThat(saved.getCampaign()).isEqualTo("cmp-b");
         assertThat(result).isSameAs(persisted);
     }
@@ -108,7 +109,7 @@ class LeadServiceTest {
         Lead existing = Lead.builder()
                 .tenant(event.getTenant())
                 .phone(event.getPhone())
-                .status("NEW")
+                .status(LeadStatus.NEW)
                 .campaign(event.getCampaign())
                 .build();
 
@@ -135,7 +136,7 @@ class LeadServiceTest {
         Lead existing = Lead.builder()
                 .tenant(event.getTenant())
                 .phone(event.getPhone())
-                .status("NEW")
+                .status(LeadStatus.NEW)
                 .campaign(event.getCampaign())
                 .build();
         AutomationRule rule = AutomationRule.builder()

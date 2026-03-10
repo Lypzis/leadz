@@ -14,9 +14,10 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.lypzis.lead_contracts.dto.MessageDirectionEnum;
-import com.lypzis.lead_worker.entity.Lead;
-import com.lypzis.lead_worker.entity.LeadMessage;
-import com.lypzis.lead_worker.repository.LeadMessageRepository;
+import com.lypzis.lead_domain.entity.Lead;
+import com.lypzis.lead_domain.entity.LeadMessage;
+import com.lypzis.lead_domain.entity.LeadStatus;
+import com.lypzis.lead_domain.repository.LeadMessageRepository;
 
 @ExtendWith(MockitoExtension.class)
 class LeadMessageServiceTest {
@@ -77,7 +78,7 @@ class LeadMessageServiceTest {
         Lead lead = Lead.builder()
                 .tenant("tenant-a")
                 .phone("+15550000001")
-                .status("NEW")
+                .status(LeadStatus.NEW)
                 .campaign("cmp-a")
                 .build();
         lead.setId(1L);
