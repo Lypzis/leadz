@@ -12,8 +12,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.messaging.handler.annotation.Header;
 
 import com.lypzis.lead_worker.config.RabbitConfig;
-import com.lypzis.lead_worker.entity.Lead;
-import com.lypzis.lead_worker.repository.LeadRepository;
 import com.lypzis.lead_contracts.dto.LeadDTO;
 import com.rabbitmq.client.Channel;
 
@@ -24,9 +22,8 @@ public class LeadListener {
 
     private static final long MAX_RETRIES_BEFORE_DLQ = 1;
 
-    private final LeadRepository leadRepository;
-    private final AutomationRuleService ruleService;
-    private final WhatsAppSender sender;
+    private final LeadService leadService;
+    // private final WhatsAppSender sender;
     private final RabbitTemplate rabbitTemplate;
     private final IdempotencyService idempotencyService;
 
@@ -44,7 +41,7 @@ public class LeadListener {
 
             }
 
-            processLead(event);
+            leadService.processLead(event);
 
             idempotencyService.markProcessed(event.getTenant(), event.getMessageId());
 
@@ -63,33 +60,4 @@ public class LeadListener {
         }
     }
 
-    private void processLead(LeadDTO event) {
-        if (event.getVersion() != 1) {
-            log.warn("Unsupported event version {}", event.getVersion());
-            return;
-        }
-
-        log.info("Received lead event {}", event.getMessageId());
-
-        if (leadRepository.findByTenantAndMessageId(event.getTenant(), event.getMessageId()).isPresent()) {
-            log.info("Duplicate message ignored: {}", event.getMessageId());
-            return;
-        }
-
-        Lead lead = Lead.builder()
-                .messageId(event.getMessageId())
-                .phone(event.getPhone())
-                .message(event.getMessage())
-                .campaign(event.getCampaign())
-                .tenant(event.getTenant())
-                .build();
-
-        leadRepository.save(lead);
-
-        log.info("Lead stored successfully {}", lead.getId());
-
-        ruleService.matchRule(
-                event.getTenant(),
-                event.getMessage());
-    }
 }

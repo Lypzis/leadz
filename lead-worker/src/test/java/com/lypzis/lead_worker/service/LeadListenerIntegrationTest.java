@@ -21,7 +21,9 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 import com.lypzis.lead_contracts.dto.LeadDTO;
+import com.lypzis.lead_contracts.dto.MessageDirectionEnum;
 import com.lypzis.lead_worker.config.RabbitConfig;
+import com.lypzis.lead_worker.repository.LeadMessageRepository;
 import com.lypzis.lead_worker.repository.LeadRepository;
 import com.lypzis.lead_worker.repository.ProcessedMessageRepository;
 
@@ -62,6 +64,9 @@ class LeadListenerIntegrationTest {
     private LeadRepository leadRepository;
 
     @Autowired
+    private LeadMessageRepository leadMessageRepository;
+
+    @Autowired
     private ProcessedMessageRepository processedMessageRepository;
 
     @Autowired
@@ -72,6 +77,7 @@ class LeadListenerIntegrationTest {
         amqpAdmin.purgeQueue(RabbitConfig.MAIN_QUEUE, true);
         amqpAdmin.purgeQueue(RabbitConfig.RETRY_QUEUE, true);
         amqpAdmin.purgeQueue(RabbitConfig.DLQ, true);
+        leadMessageRepository.deleteAll();
         leadRepository.deleteAll();
         processedMessageRepository.deleteAll();
     }
@@ -90,12 +96,18 @@ class LeadListenerIntegrationTest {
         await()
                 .atMost(Duration.ofSeconds(10))
                 .untilAsserted(() -> {
-                    var savedLead = leadRepository.findByTenantAndMessageId(event.getTenant(), event.getMessageId());
+                    var savedLead = leadRepository.findByTenantAndPhone(event.getTenant(), event.getPhone());
                     assertThat(savedLead).isPresent();
                     assertThat(savedLead.orElseThrow().getPhone()).isEqualTo(event.getPhone());
-                    assertThat(savedLead.orElseThrow().getMessage()).isEqualTo(event.getMessage());
                     assertThat(savedLead.orElseThrow().getCampaign()).isEqualTo(event.getCampaign());
+                    assertThat(savedLead.orElseThrow().getStatus()).isEqualTo("NEW");
                     assertThat(savedLead.orElseThrow().getTenant()).isEqualTo(event.getTenant());
+                    var messages = leadMessageRepository.findByLeadIdOrderByCreatedAtAsc(
+                            savedLead.orElseThrow().getId());
+                    assertThat(messages).hasSize(1);
+                    assertThat(messages.get(0).getDirection()).isEqualTo(MessageDirectionEnum.INBOUND);
+                    assertThat(messages.get(0).getContent()).isEqualTo(event.getMessage());
+                    assertThat(messages.get(0).getMessageId()).isEqualTo(event.getMessageId());
                     assertThat(processedMessageRepository.existsByTenantAndMessageId(
                             event.getTenant(),
                             event.getMessageId())).isTrue();
@@ -126,6 +138,7 @@ class LeadListenerIntegrationTest {
                 .atMost(Duration.ofSeconds(10))
                 .untilAsserted(() -> {
                     assertThat(leadRepository.count()).isEqualTo(1L);
+                    assertThat(leadMessageRepository.count()).isEqualTo(1L);
                     assertThat(processedMessageRepository.count()).isEqualTo(1L);
                 });
     }
@@ -154,8 +167,9 @@ class LeadListenerIntegrationTest {
         await()
                 .atMost(Duration.ofSeconds(10))
                 .untilAsserted(() -> {
-                    assertThat(leadRepository.findByTenantAndMessageId("tenant-a", sharedMessageId)).isPresent();
-                    assertThat(leadRepository.findByTenantAndMessageId("tenant-b", sharedMessageId)).isPresent();
+                    assertThat(leadRepository.findByTenantAndPhone("tenant-a", tenantAEvent.getPhone())).isPresent();
+                    assertThat(leadRepository.findByTenantAndPhone("tenant-b", tenantBEvent.getPhone())).isPresent();
+                    assertThat(leadMessageRepository.count()).isEqualTo(2L);
                     assertThat(processedMessageRepository.existsByTenantAndMessageId("tenant-a", sharedMessageId)).isTrue();
                     assertThat(processedMessageRepository.existsByTenantAndMessageId("tenant-b", sharedMessageId)).isTrue();
                 });

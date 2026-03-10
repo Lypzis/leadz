@@ -4,8 +4,11 @@ import jakarta.persistence.*;
 import lombok.*;
 
 @Entity
-@Table(name = "leads", uniqueConstraints = {
-        @UniqueConstraint(name = "uk_message_id", columnNames = { "tenant", "message_id" })
+@Table(name = "leads", indexes = {
+        @Index(name = "idx_leads_tenant_phone", columnList = "tenant,phone"),
+        @Index(name = "idx_leads_tenant_status", columnList = "tenant,status")
+}, uniqueConstraints = {
+        @UniqueConstraint(name = "uk_leads_tenant_phone", columnNames = { "tenant", "phone" })
 })
 @Data
 @EqualsAndHashCode(callSuper = true)
@@ -14,16 +17,14 @@ import lombok.*;
 @Builder
 public class Lead extends BaseEntity {
 
-    @Column(name = "message_id")
-    private String messageId;
-
-    private String phone;
-
-    @Column(length = 1000)
-    private String message;
-
-    private String campaign;
-
+    @Column(nullable = false)
     private String tenant;
 
+    @Column(nullable = false)
+    private String phone;
+
+    @Column(nullable = false)
+    private String status;
+
+    private String campaign;
 }

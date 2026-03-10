@@ -7,7 +7,7 @@ import lombok.extern.slf4j.Slf4j;
 // TODO this is a mock right, later choose an API: Z-API, Meta or Evolution
 @Service
 @Slf4j
-public class WhatsAppSender {
+public class MessageSender {
 
     public void sendMessage(String phone, String message) {
 

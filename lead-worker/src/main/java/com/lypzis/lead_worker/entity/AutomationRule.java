@@ -1,5 +1,7 @@
 package com.lypzis.lead_worker.entity;
 
+import com.lypzis.lead_contracts.dto.AutomationActionTypeEnum;
+
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -19,6 +21,12 @@ public class AutomationRule extends BaseEntity {
 
     private String keyword;
 
-    @Column(length = 1000)
-    private String responseMessage;
+    @Column(nullable = false)
+    private Integer priority;
+
+    @Enumerated(EnumType.STRING)
+    private AutomationActionTypeEnum actionType;
+
+    @Column(length = 2000)
+    private String actionPayload;
 }

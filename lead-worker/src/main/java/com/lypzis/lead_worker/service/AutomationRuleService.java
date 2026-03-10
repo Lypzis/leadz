@@ -18,17 +18,17 @@ public class AutomationRuleService {
 
     public Optional<AutomationRule> matchRule(String tenant, String message) {
 
-        // TODO add findByTenantAndKeywordIn, to avoid all rules every message
-        List<AutomationRule> rules = ruleRepository.findByTenant(tenant);
+        String msg = message.toLowerCase();
 
-        String lowerMessage = message.toLowerCase();
+        List<AutomationRule> rules = ruleRepository.findByTenantOrderByPriorityDesc(tenant);
 
         for (AutomationRule rule : rules) {
 
-            if (lowerMessage.contains(rule.getKeyword().toLowerCase())) {
+            String keyword = rule.getKeyword().toLowerCase();
+
+            if (msg.contains(keyword)) {
                 return Optional.of(rule);
             }
-
         }
 
         return Optional.empty();
