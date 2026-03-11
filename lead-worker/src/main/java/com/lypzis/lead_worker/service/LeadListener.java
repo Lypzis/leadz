@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.messaging.handler.annotation.Header;
 
 import com.lypzis.lead_worker.config.RabbitConfig;
+import com.lypzis.lead_worker.exception.NonRetryableProcessingException;
 import com.lypzis.lead_contracts.dto.LeadDTO;
 import com.lypzis.lead_contracts.dto.ProcessingResultEnum;
 import com.rabbitmq.client.Channel;
@@ -38,6 +39,11 @@ public class LeadListener {
 
             channel.basicAck(tag, false);
 
+        } catch (NonRetryableProcessingException e) {
+            log.error("Sending message {} directly to DLQ due to non-retryable processing error",
+                    event.getMessageId(), e);
+            rabbitTemplate.convertAndSend(RabbitConfig.EXCHANGE, RabbitConfig.DLQ_ROUTING_KEY, event);
+            channel.basicAck(tag, false);
         } catch (Exception e) {
             if (retryCount != null && retryCount >= MAX_RETRIES_BEFORE_DLQ) {
                 log.error("Sending message {} to DLQ after {} retries", event.getMessageId(), retryCount, e);

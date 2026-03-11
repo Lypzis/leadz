@@ -8,6 +8,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.lypzis.lead_contracts.dto.CreateTenantRequestDTO;
 import com.lypzis.lead_contracts.dto.TenantResponseDTO;
 import com.lypzis.lead_api.exception.ResourceNotFoundException;
+import com.lypzis.lead_api.exception.UnauthorizedException;
 import com.lypzis.lead_api.security.ApiKeyGenerator;
 import com.lypzis.lead_domain.entity.Tenant;
 import com.lypzis.lead_domain.repository.TenantRepository;
@@ -21,13 +22,23 @@ public class TenantManagementService {
     private final TenantRepository tenantRepository;
     private final ApiKeyGenerator apiKeyGenerator;
     private final AdminUserProvisioningService adminUserProvisioningService;
+    private final TenantService tenantService;
 
     @Transactional
     public TenantResponseDTO create(CreateTenantRequestDTO request) {
+        if (request.whatsappPhoneNumberId() == null || request.whatsappPhoneNumberId().isBlank()) {
+            throw new IllegalArgumentException("whatsappPhoneNumberId is required");
+        }
+        tenantRepository.findByWhatsappPhoneNumberId(request.whatsappPhoneNumberId())
+                .ifPresent(tenant -> {
+                    throw new IllegalArgumentException("whatsappPhoneNumberId already in use");
+                });
+
         Tenant tenant = new Tenant();
         tenant.setName(request.name());
         tenant.setPlan(request.plan());
         tenant.setRequestsPerMinute(request.requestsPerMinute());
+        tenant.setWhatsappPhoneNumberId(request.whatsappPhoneNumberId());
         tenant.setActive(true);
         tenant.setApiKey(apiKeyGenerator.generate());
 
@@ -37,30 +48,36 @@ public class TenantManagementService {
     }
 
     public TenantResponseDTO getById(Long id) {
-        Tenant tenant = tenantRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Tenant not found: " + id));
+        Tenant tenant = getOwnedTenantOrThrow(id);
         return toResponse(tenant);
     }
 
     public List<TenantResponseDTO> list() {
-        return tenantRepository.findAll().stream()
-                .map(this::toResponse)
-                .toList();
+        Tenant tenant = tenantService.getCurrentTenant();
+        return List.of(toResponse(tenant));
     }
 
     public void deactivate(Long id) {
-        Tenant tenant = tenantRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Tenant not found: " + id));
+        Tenant tenant = getOwnedTenantOrThrow(id);
         tenant.setActive(false);
         tenantRepository.save(tenant);
     }
 
     public TenantResponseDTO regenerateApiKey(Long id) {
-        Tenant tenant = tenantRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Tenant not found: " + id));
+        Tenant tenant = getOwnedTenantOrThrow(id);
         tenant.setApiKey(apiKeyGenerator.generate());
         Tenant saved = tenantRepository.save(tenant);
         return toResponse(saved);
+    }
+
+    private Tenant getOwnedTenantOrThrow(Long requestedTenantId) {
+        Tenant currentTenant = tenantService.getCurrentTenant();
+
+        if (requestedTenantId == null || !requestedTenantId.equals(currentTenant.getId())) {
+            throw new UnauthorizedException("Tenant access denied");
+        }
+        return tenantRepository.findById(currentTenant.getId())
+                .orElseThrow(() -> new ResourceNotFoundException("Tenant not found: " + currentTenant.getId()));
     }
 
     private TenantResponseDTO toResponse(Tenant tenant) {
@@ -68,6 +85,7 @@ public class TenantManagementService {
                 tenant.getId(),
                 tenant.getName(),
                 tenant.getApiKey(),
+                tenant.getWhatsappPhoneNumberId(),
                 tenant.getPlan(),
                 tenant.getRequestsPerMinute(),
                 tenant.getActive(),

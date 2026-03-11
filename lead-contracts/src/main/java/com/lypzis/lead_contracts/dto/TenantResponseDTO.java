@@ -6,6 +6,7 @@ public record TenantResponseDTO(
         Long id,
         String name,
         String apiKey,
+        String whatsappPhoneNumberId,
         TenantPlanEnum plan,
         Integer requestsPerMinute,
         boolean active,

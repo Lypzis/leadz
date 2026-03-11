@@ -17,16 +17,24 @@ import com.lypzis.lead_api.dto.AutomationRuleRequestDTO;
 import com.lypzis.lead_api.dto.AutomationRuleResponseDTO;
 import com.lypzis.lead_api.service.AutomationRuleService;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 
 @RestController
 @RequestMapping("/automation-rules")
 @RequiredArgsConstructor
+@Tag(name = "Automation Rules", description = "Automation rule management")
+@SecurityRequirement(name = "bearerAuth")
 public class AutomationRuleController {
 
     private final AutomationRuleService automationRuleService;
 
     @PostMapping
+    @Operation(
+            summary = "Create automation rule",
+            description = "Creates a rule that triggers actions when a keyword is detected")
     public ResponseEntity<AutomationRuleResponseDTO> create(@RequestBody AutomationRuleRequestDTO request) {
 
         AutomationRuleResponseDTO response = automationRuleService.create(request);
@@ -34,12 +42,18 @@ public class AutomationRuleController {
     }
 
     @GetMapping
+    @Operation(
+            summary = "List automation rules",
+            description = "Lists all automation rules for the authenticated tenant")
     public List<AutomationRuleResponseDTO> list() {
 
         return automationRuleService.list();
     }
 
     @PutMapping("/{id}")
+    @Operation(
+            summary = "Update automation rule",
+            description = "Updates an existing automation rule by id for the authenticated tenant")
     public AutomationRuleResponseDTO update(
             @PathVariable Long id,
             @RequestBody AutomationRuleRequestDTO request) {
@@ -48,6 +62,9 @@ public class AutomationRuleController {
     }
 
     @DeleteMapping("/{id}")
+    @Operation(
+            summary = "Delete automation rule",
+            description = "Deletes an automation rule by id for the authenticated tenant")
     public ResponseEntity<Void> delete(@PathVariable Long id) {
 
         automationRuleService.delete(id);

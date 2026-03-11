@@ -18,7 +18,6 @@ import org.springframework.amqp.rabbit.core.RabbitTemplate;
 
 import com.lypzis.lead_api.config.RabbitConfig;
 import com.lypzis.lead_api.exception.RateLimitExceededException;
-import com.lypzis.lead_api.exception.UnauthorizedException;
 import com.lypzis.lead_domain.entity.Tenant;
 import com.lypzis.lead_contracts.dto.LeadDTO;
 import com.lypzis.lead_contracts.dto.LeadEventDTO;
@@ -33,9 +32,6 @@ class LeadPublisherServiceTest {
     @Mock
     private TenantRateLimiterService rateLimiter;
 
-    @Mock
-    private TenantService tenantService;
-
     @InjectMocks
     private LeadPublisherService service;
 
@@ -45,27 +41,23 @@ class LeadPublisherServiceTest {
     @Test
     void shouldThrowTooManyRequestsWhenRateLimitExceeded() {
         Tenant tenant = activeTenant("tenant-key", 60);
-        when(tenantService.getCurrentTenant()).thenReturn(tenant);
         when(rateLimiter.allow("tenant-key", 60)).thenReturn(false);
 
         RateLimitExceededException exception = assertThrows(
                 RateLimitExceededException.class,
-                () -> service.publish(sampleEvent()));
+                () -> service.publish(sampleEvent(), tenant));
 
         assertThat(exception.getMessage()).isEqualTo("Rate limit exceeded");
         verifyNoInteractions(rabbitTemplate);
     }
 
     @Test
-    void shouldThrowUnauthorizedWhenTenantCannotBeResolved() {
-        when(tenantService.getCurrentTenant())
-                .thenThrow(new UnauthorizedException("Invalid or inactive API key"));
+    void shouldThrowBadRequestWhenTenantIsMissing() {
+        IllegalArgumentException exception = assertThrows(
+                IllegalArgumentException.class,
+                () -> service.publish(sampleEvent(), null));
 
-        UnauthorizedException exception = assertThrows(
-                UnauthorizedException.class,
-                () -> service.publish(sampleEvent()));
-
-        assertThat(exception.getMessage()).isEqualTo("Invalid or inactive API key");
+        assertThat(exception.getMessage()).isEqualTo("Tenant is required for publishing");
         verifyNoInteractions(rateLimiter, rabbitTemplate);
     }
 
@@ -75,10 +67,9 @@ class LeadPublisherServiceTest {
         LeadEventDTO event = sampleEvent();
         event.setApiKey("spoofed-body-key");
 
-        when(tenantService.getCurrentTenant()).thenReturn(tenant);
         when(rateLimiter.allow("tenant-key", 75)).thenReturn(true);
 
-        service.publish(event);
+        service.publish(event, tenant);
 
         verify(rateLimiter).allow("tenant-key", 75);
         verify(rabbitTemplate).convertAndSend(

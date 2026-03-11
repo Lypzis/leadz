@@ -9,8 +9,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import org.springframework.web.servlet.HandlerExceptionResolver;
 
 import com.lypzis.lead_api.exception.UnauthorizedException;
-import com.lypzis.lead_api.service.TenantService;
-import com.lypzis.lead_domain.entity.Tenant;
+import com.lypzis.lead_api.service.JwtTokenService;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -23,9 +22,10 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class TenantContextFilter extends OncePerRequestFilter {
 
-    private static final String API_KEY_HEADER = "X-API-Key";
+    private static final String AUTHORIZATION_HEADER = "Authorization";
+    private static final String BEARER_PREFIX = "Bearer ";
 
-    private final TenantService tenantService;
+    private final JwtTokenService jwtTokenService;
     private final HandlerExceptionResolver handlerExceptionResolver;
 
     @Override
@@ -33,22 +33,22 @@ public class TenantContextFilter extends OncePerRequestFilter {
             throws ServletException, IOException {
 
         String path = request.getRequestURI();
-        boolean requiresTenant = requiresTenantContext(path);
-        String apiKey = request.getHeader(API_KEY_HEADER);
+        boolean requiresAdminJwt = requiresAdminJwt(path, request.getMethod());
+        String authorization = request.getHeader(AUTHORIZATION_HEADER);
 
         try {
-            if (requiresTenant) {
-                if (apiKey == null || apiKey.isBlank()) {
+            if (requiresAdminJwt) {
+                String token = extractBearerToken(authorization);
+                if (token == null) {
                     handlerExceptionResolver.resolveException(
                             request,
                             response,
                             null,
-                            new UnauthorizedException("Missing X-API-Key header"));
+                            new UnauthorizedException("Missing Authorization Bearer token"));
                     return;
                 }
-
-                Tenant tenant = tenantService.resolveTenant(apiKey);
-                TenantContext.set(tenant.getId());
+                Long tenantId = jwtTokenService.extractTenantId(token);
+                TenantContext.set(tenantId);
             }
 
             filterChain.doFilter(request, response);
@@ -59,9 +59,21 @@ public class TenantContextFilter extends OncePerRequestFilter {
         }
     }
 
-    private boolean requiresTenantContext(String path) {
-        return path.startsWith("/webhook/")
-                || path.startsWith("/leads")
-                || path.startsWith("/automation-rules");
+    private boolean requiresAdminJwt(String path, String method) {
+        if (path.startsWith("/leads") || path.startsWith("/automation-rules")) {
+            return true;
+        }
+        if (path.equals("/tenants") && "POST".equalsIgnoreCase(method)) {
+            return false;
+        }
+        return path.startsWith("/tenants");
+    }
+
+    private String extractBearerToken(String authorization) {
+        if (authorization == null || !authorization.startsWith(BEARER_PREFIX)) {
+            return null;
+        }
+        String token = authorization.substring(BEARER_PREFIX.length()).trim();
+        return token.isBlank() ? null : token;
     }
 }

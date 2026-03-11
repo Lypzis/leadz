@@ -19,6 +19,9 @@ public class Tenant extends BaseEntity {
     @Column(nullable = false, unique = true)
     private String apiKey;
 
+    @Column(unique = true)
+    private String whatsappPhoneNumberId;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private TenantPlanEnum plan;

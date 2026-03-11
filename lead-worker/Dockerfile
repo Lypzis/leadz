@@ -5,12 +5,14 @@ WORKDIR /app
 # Cache dependencies for the lead-worker reactor slice.
 COPY pom.xml pom.xml
 COPY lead-contracts/pom.xml lead-contracts/pom.xml
+COPY lead-domain/pom.xml lead-domain/pom.xml
 COPY lead-worker/pom.xml lead-worker/pom.xml
 COPY lead-api/pom.xml lead-api/pom.xml
 RUN mvn -B -ntp -f pom.xml -pl lead-worker -am dependency:go-offline
 
 # Build lead-worker (and required shared module)
 COPY lead-contracts/src lead-contracts/src
+COPY lead-domain/src lead-domain/src
 COPY lead-worker/src lead-worker/src
 RUN mvn -B -ntp -f pom.xml -pl lead-worker -am clean package -DskipTests
 

@@ -10,6 +10,8 @@ import org.springframework.boot.test.context.SpringBootTest;
 		"spring.datasource.password=",
 		"spring.flyway.enabled=false",
 		"spring.jpa.hibernate.ddl-auto=create-drop",
+		"JWT_SECRET=test_secret_key_with_32_chars_minimum_123",
+		"WHATSAPP_VERIFY_TOKEN=test_verify_token",
 		"spring.data.redis.host=localhost",
 		"spring.data.redis.port=6379"
 })

@@ -11,3 +11,7 @@ spring:
     hibernate:
       ddl-auto: validate
     show-sql: true
+
+whatsapp:
+  verify-token: ${WHATSAPP_VERIFY_TOKEN}
+  app-secret: ${WHATSAPP_APP_SECRET}

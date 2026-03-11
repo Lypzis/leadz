@@ -33,4 +33,14 @@ public class TenantService {
                 .filter(Tenant::getActive)
                 .orElseThrow(() -> new UnauthorizedException("Invalid or inactive API key"));
     }
+
+    public Tenant resolveWebhookTenantByPhoneNumberId(String whatsappPhoneNumberId) {
+        if (whatsappPhoneNumberId == null || whatsappPhoneNumberId.isBlank()) {
+            throw new UnauthorizedException("Missing WhatsApp phone number id in webhook payload");
+        }
+
+        return tenantRepository.findByWhatsappPhoneNumberId(whatsappPhoneNumberId)
+                .filter(Tenant::getActive)
+                .orElseThrow(() -> new UnauthorizedException("Invalid or inactive tenant for webhook payload"));
+    }
 }
